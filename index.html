@@ -55,7 +55,7 @@ button.big{font:400 18px var(--sign);padding:14px 24px;letter-spacing:.02em}
 .ticket::before{content:"";position:absolute;left:50%;top:-9px;width:22px;height:8px;margin-left:-11px;background:#c7ccd6;border-radius:2px}
 .ticket .tn{font:700 11px var(--ui);display:flex;justify-content:space-between}
 .ticket canvas{width:78px;height:78px;justify-self:center}
-.ticket .tf{display:flex;justify-content:space-between;font:700 10px var(--ui)}
+.ticket .tf{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 5px;font:700 10px var(--ui)}
 .ticket .pat{height:4px;background:#e6dccb;border-radius:3px;overflow:hidden}
 .ticket .pat i{display:block;height:100%;background:#3bbf7a}
 .ticket .stage{position:absolute;right:-6px;top:-8px;font:400 9px var(--sign);background:var(--pink);color:#fff;padding:3px 5px;border-radius:6px}
@@ -238,16 +238,28 @@ const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.floor(Math.random()*a.len
    Game data
    ========================================================= */
 const TOPPINGS=[
-  {id:"pep",  name:"Pepperoni",     rank:1, col:"#b8332a", col2:"#7e1f18", shape:"disc"},
-  {id:"mush", name:"Mushrooms",     rank:1, col:"#d9c3a0", col2:"#a88b62", shape:"mush"},
-  {id:"pepr", name:"Green peppers", rank:1, col:"#3fa34d", col2:"#2b7a36", shape:"ring"},
-  {id:"olive",name:"Black olives",  rank:1, col:"#26222a", col2:"#4a4450", shape:"ring"},
-  {id:"onion",name:"Onions",        rank:2, col:"#e8d6f0", col2:"#a36db8", shape:"ring"},
-  {id:"saus", name:"Sausage",       rank:3, col:"#8a4b2b", col2:"#5e3018", shape:"lump"},
-  {id:"pine", name:"Pineapple",     rank:4, col:"#f2cf3a", col2:"#c9a21c", shape:"wedge"},
-  {id:"jal",  name:"Jalapeños",     rank:5, col:"#5bbf3a", col2:"#d8f0b0", shape:"disc"},
-  {id:"bacon",name:"Bacon",         rank:6, col:"#c4554a", col2:"#f0c4b0", shape:"strip"},
+  {id:"pep",    name:"Pepperoni",     rank:1, col:"#b8332a", col2:"#7e1f18", shape:"disc"},
+  {id:"mush",   name:"Mushrooms",     rank:1, col:"#d9c3a0", col2:"#a88b62", shape:"mush"},
+  {id:"pepr",   name:"Green peppers", rank:1, col:"#3fa34d", col2:"#2b7a36", shape:"ring"},
+  {id:"olive",  name:"Black olives",  rank:1, col:"#26222a", col2:"#4a4450", shape:"ring"},
+  {id:"onion",  name:"Onions",        rank:1, col:"#e8d6f0", col2:"#a36db8", shape:"ring"},
+  {id:"tomato", name:"Tomatoes",      rank:1, col:"#e0412f", col2:"#f7b08a", shape:"tomato"},
+  {id:"corn",   name:"Sweet corn",    rank:1, col:"#f5c518", col2:"#e09b0c", shape:"kernel"},
+  {id:"chicken",name:"Chicken",       rank:1, col:"#e2b47c", col2:"#9c6232", shape:"cube"},
+  {id:"paneer", name:"Paneer",        rank:1, col:"#fbf4e2", col2:"#d99a4a", shape:"cube"},
+  {id:"saus",   name:"Sausage",       rank:2, col:"#8a4b2b", col2:"#5e3018", shape:"lump"},
+  {id:"spin",   name:"Spinach",       rank:2, col:"#2f8a3a", col2:"#7fd08a", shape:"leaf"},
+  {id:"pine",   name:"Pineapple",     rank:3, col:"#f2cf3a", col2:"#c9a21c", shape:"wedge"},
+  {id:"jal",    name:"Jalapeños",     rank:3, col:"#5bbf3a", col2:"#d8f0b0", shape:"disc"},
+  {id:"bacon",  name:"Bacon",         rank:4, col:"#c4554a", col2:"#f0c4b0", shape:"strip"},
 ];
+const SAUCES={
+  marinara:{name:"Marinara",short:"MARINARA",col:"#c8321f",rgb:"196,40,24",idx:1},
+  pesto:   {name:"Pesto",   short:"PESTO",   col:"#4f8a2b",rgb:"74,136,40",idx:2},
+  alfredo: {name:"Alfredo", short:"ALFREDO", col:"#efe6cf",rgb:"240,230,204",idx:3},
+};
+const SAUCE_IDS=Object.keys(SAUCES);
+const isSauce=tool=>typeof tool==="string"&&tool.startsWith("sauce:");
 const TOP=Object.fromEntries(TOPPINGS.map(t=>[t.id,t]));
 const RANKS=[0,250,600,1100,1700,2400,3200,4200,5400];
 const RANK_NAMES=["Fry Cook","Dough Roller","Sauce Boss","Topping Ace","Oven Wrangler","Slice Master","Night Manager","Diner Legend","Neon Royalty"];
@@ -257,11 +269,11 @@ const REGION_COUNT={all:8,L:4,R:4,q1:2,q2:2,q3:2,q4:2};
 const CUSTOMERS=[
   {name:"Roxy",  hair:"beehive",   hairCol:"#ff7ab8", shirt:"#39c6d9", skin:"#f1c7a5", fav:["pep","pine"],   glasses:false},
   {name:"Duke",  hair:"pompadour", hairCol:"#1b1b22", shirt:"#222129", skin:"#d9a27c", fav:["saus","pepr"],  glasses:true },
-  {name:"Dottie",hair:"ponytail",  hairCol:"#e7b04b", shirt:"#ff4fa3", skin:"#f6d2b8", fav:["mush","olive"], glasses:false},
+  {name:"Dottie",hair:"ponytail",  hairCol:"#e7b04b", shirt:"#ff4fa3", skin:"#f6d2b8", fav:["tomato","spin"], glasses:false},
   {name:"Chet",  hair:"cap",       hairCol:"#d23a3a", shirt:"#f2f2f2", skin:"#c88b62", fav:["pep","bacon"],  glasses:false},
-  {name:"Lulu",  hair:"beehive",   hairCol:"#4fd1c5", shirt:"#ffd23f", skin:"#8d5a3c", fav:["onion","pepr"], glasses:true },
+  {name:"Lulu",  hair:"beehive",   hairCol:"#4fd1c5", shirt:"#ffd23f", skin:"#8d5a3c", fav:["chicken","corn"], glasses:true },
   {name:"Buzz",  hair:"buzz",      hairCol:"#3a2a1e", shirt:"#7a5cff", skin:"#e8b896", fav:["jal","pep"],    glasses:true },
-  {name:"Pearl", hair:"bun",       hairCol:"#d6d4dc", shirt:"#9ad1a0", skin:"#f0cdb6", fav:["mush","onion"], glasses:true },
+  {name:"Pearl", hair:"bun",       hairCol:"#d6d4dc", shirt:"#9ad1a0", skin:"#f0cdb6", fav:["paneer","onion"], glasses:true },
   {name:"Vinnie",hair:"pompadour", hairCol:"#5a3420", shirt:"#2f6fdb", skin:"#d7a07a", fav:["saus","olive"], glasses:false},
   {name:"Ziggy", hair:"mohawk",    hairCol:"#39e6ff", shirt:"#141414", skin:"#b67c55", fav:["jal","bacon"],  glasses:false},
   {name:"Marla", hair:"ponytail",  hairCol:"#2a1a14", shirt:"#ff8a3d", skin:"#7a4a30", fav:["pine","pepr"],  glasses:false},
@@ -313,6 +325,7 @@ const SFX={
   oven:()=>{ noise(.35,300,.8,.1); tone(120,.3,"sawtooth",.04,40); },
   sad:()=>tone(330,.45,"sawtooth",.07,-140),
   warn:()=>{ tone(520,.12,"square",.08); tone(520,.12,"square",.08,0,.18); },
+  fizz:()=>{ noise(1.0,5200,.4,.06); noise(.9,2600,.6,.04,.08); tone(220,.12,"sine",.05,-80); },
   star:()=>{ [0,4,7,12].forEach((s,i)=>tone(784*Math.pow(2,s/12),.25,"triangle",.1,0,i*.07)); },
 };
 function startMusic(){
@@ -489,7 +502,7 @@ neonTube([V3(-3.98,0,-7.22),V3(-3.98,2.25,-7.22),V3(-2.82,2.25,-7.22),V3(-2.82,0
 /* counter + kitchen */
 rbox(3.6,.98,.42,MAT.mint,0,.49,-.78,.04); rbox(3.75,.05,.58,MAT.formica,0,1.0,-.78,.015);
 neonTube([V3(-1.8,.9,-1.0),V3(1.8,.9,-1.0)],0xff4fa3,.012);
-const bell=new THREE.Group(); bell.position.set(-.3,1.025,-.68); scene.add(bell);
+const bell=new THREE.Group(); bell.position.set(-.55,1.025,-.68); scene.add(bell);
 { const b=new THREE.Mesh(new THREE.CylinderGeometry(.05,.055,.015,24),MAT.dark); bell.add(b);
   const dome=new THREE.Mesh(new THREE.SphereGeometry(.045,24,12,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0xffd23f,metalness:1,roughness:.2,emissive:0xffd23f,emissiveIntensity:0}));
   dome.position.y=.008; bell.add(dome); dome.userData.action="order"; dome.userData.hl=dome.material; bell.userData.dome=dome; }
@@ -504,7 +517,7 @@ rbox(.78,.94,1.7,MAT.steel,-1.05,.47,.05,.02); rbox(.8,.03,1.72,MAT.marble,-1.05
 const BUILD_POS=V3(.86,.972,0), CUT_POS=V3(-.86,.985,0);
 { const slab=new THREE.Mesh(new THREE.CylinderGeometry(.21,.21,.012,48),new THREE.MeshPhysicalMaterial({color:0x2b2440,roughness:.3,clearcoat:1})); slab.position.set(BUILD_POS.x,.966,0); slab.receiveShadow=true; scene.add(slab);
   const board=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.025,48),MAT.wood); board.position.set(CUT_POS.x,.971,0); board.receiveShadow=true; scene.add(board); }
-const cutPlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1.4),new THREE.MeshBasicMaterial({visible:false})); cutPlane.rotation.x=-Math.PI/2; cutPlane.position.set(-.86,1.0,0); cutPlane.userData.action="cut"; scene.add(cutPlane);
+const cutPlane=new THREE.Mesh(new THREE.PlaneGeometry(.9,.9),new THREE.MeshBasicMaterial({visible:false})); cutPlane.rotation.x=-Math.PI/2; cutPlane.position.set(-.86,1.0,0); cutPlane.userData.action="cut"; scene.add(cutPlane);
 // oven
 rbox(2.0,.6,.62,MAT.steel,0,.3,1.65,.02); rbox(2.0,1.0,.62,MAT.chrome,0,1.1,1.65,.04);
 const OVEN_POS=[V3(.46,.905,1.17),V3(-.46,.905,1.17)], ovenGlow=[], ovenMouth=[];
@@ -529,11 +542,24 @@ function toppingGeo(shape,id){
     case "strip": return new THREE.BoxGeometry(.036,.004,.011);
     case "mush": { const s=new THREE.Shape(); s.absarc(0,.003,.013,0,Math.PI,false); s.lineTo(-.005,.003); s.lineTo(-.005,-.012); s.lineTo(.005,-.012); s.lineTo(.005,.003); s.closePath();
       return new THREE.ExtrudeGeometry(s,{depth:.004,bevelEnabled:false}).rotateX(-Math.PI/2); }
+    case "tomato": return new THREE.CylinderGeometry(.017,.017,.004,18);
+    case "kernel": return mergeGeos([[-.008,0,-.004],[.007,0,-.006],[0,0,.008],[.009,0,.006],[-.007,0,.009]].map(p=>new THREE.SphereGeometry(.0058,8,6).scale(1,.75,1).translate(...p)));
+    case "cube": return new RoundedBoxGeometry(id==="paneer"?.018:.017,id==="paneer"?.013:.011,id==="paneer"?.018:.015,1,.003);
+    case "leaf": { const s=new THREE.Shape(); s.moveTo(-.018,0); s.quadraticCurveTo(0,.014,.018,0); s.quadraticCurveTo(0,-.014,-.018,0);
+      return new THREE.ExtrudeGeometry(s,{depth:.002,bevelEnabled:false}).rotateX(-Math.PI/2); }
   }
+}
+function mergeGeos(list){
+  const pos=[], nor=[];
+  for(const g of list){ const n=g.index?g.toNonIndexed():g; pos.push(...n.attributes.position.array); nor.push(...n.attributes.normal.array); }
+  const out=new THREE.BufferGeometry(); out.setAttribute("position",new THREE.Float32BufferAttribute(pos,3)); out.setAttribute("normal",new THREE.Float32BufferAttribute(nor,3)); return out;
 }
 const TGEO={}, TMAT={};
 for(const t of TOPPINGS){ TGEO[t.id]=toppingGeo(t.shape,t.id); TMAT[t.id]=new THREE.MeshStandardMaterial({color:t.col,roughness:.55});
-  if(t.id==="jal"||t.id==="bacon"){ TMAT[t.id].emissive=new THREE.Color(t.col2); TMAT[t.id].emissiveIntensity=.08; } }
+  if(t.id==="jal"||t.id==="bacon"){ TMAT[t.id].emissive=new THREE.Color(t.col2); TMAT[t.id].emissiveIntensity=.08; }
+  if(t.id==="tomato"){ TMAT[t.id].emissive=new THREE.Color("#ff6040"); TMAT[t.id].emissiveIntensity=.06; }
+  if(t.id==="chicken"||t.id==="paneer"){ TMAT[t.id].roughness=.75; } }
+const TMAT_DIM=Object.fromEntries(TOPPINGS.map(t=>[t.id,new THREE.MeshStandardMaterial({color:new THREE.Color(t.col).multiplyScalar(.45),roughness:.8})]));
 function labelSprite(text,color="#ffffff",sub=""){
   const t=ctex(256,96,(c,w,h)=>{ c.fillStyle="rgba(18,11,38,.85)"; c.beginPath(); c.roundRect(4,4,w-8,h-8,18); c.fill(); c.strokeStyle=color; c.lineWidth=4; c.stroke();
     c.font="600 30px Rubik, sans-serif"; c.fillStyle="#fff3e0"; c.textAlign="center"; c.textBaseline="middle"; c.fillText(text,w/2,sub?h/2-12:h/2);
@@ -543,32 +569,62 @@ function labelSprite(text,color="#ffffff",sub=""){
 const trays=[];
 function buildTrays(){
   for(const tr of trays){ scene.remove(tr.group); } trays.length=0;
-  const rank=rankOf(SAVE.xp), n=TOPPINGS.length;
+  const rank=rankOf(SAVE.xp), n=TOPPINGS.length, cols=Math.ceil(n/2);
   TOPPINGS.forEach((t,i)=>{
-    const g=new THREE.Group(); const z=-.58+i*(1.16/(n-1)), x=1.15; g.position.set(x,.97,z); scene.add(g);
+    const row=i<cols?0:1, col=i%cols;
+    const g=new THREE.Group(); const z=-.4+col*.165, x=row?1.33:1.17; g.position.set(x,.97,z); scene.add(g);
     const locked=t.rank>rank;
-    const trayMat=new THREE.MeshStandardMaterial({color:locked?0x55506a:0xffffff,roughness:.3,emissive:0x39e6ff,emissiveIntensity:0});
-    const tray=new THREE.Mesh(new RoundedBoxGeometry(.11,.035,.12,2,.01),trayMat); tray.position.y=.017; tray.castShadow=true; g.add(tray);
-    if(!locked){ for(let k=0;k<6;k++){ const m=new THREE.Mesh(TGEO[t.id],TMAT[t.id]); m.position.set(rnd(-.035,.035),.038,rnd(-.04,.04)); m.rotation.y=rnd(0,6); g.add(m); }
-      tray.userData.action="tool:"+t.id; tray.userData.hl=trayMat; }
-    const lab=labelSprite(t.name,locked?"#8a83a6":t.col==="#26222a"?"#b9add6":t.col,locked?"RANK "+t.rank:""); lab.position.set(0,.1,0); g.add(lab);
+    const trayMat=new THREE.MeshStandardMaterial({color:locked?0x4a4560:0xf4f1ff,roughness:.3,emissive:0x39e6ff,emissiveIntensity:0});
+    const tray=new THREE.Mesh(new RoundedBoxGeometry(.13,.024,.142,2,.008),trayMat); tray.position.y=.012; tray.castShadow=true; tray.receiveShadow=true; g.add(tray);
+    const rim=new THREE.Mesh(new THREE.BoxGeometry(.004,.006,.13),new THREE.MeshBasicMaterial({color:locked?0x6a6488:new THREE.Color(t.col==="#26222a"?"#b9add6":t.col),toneMapped:false})); rim.position.set(-.066,.02,0); rim.scale.z=.95; g.add(rim);
+    // every tray is stocked so you can see what each topping looks like; locked ones are dimmed
+    const mat=locked?TMAT_DIM[t.id]:TMAT[t.id];
+    for(let k=0;k<14;k++){ const m=new THREE.Mesh(TGEO[t.id],mat); const layer=k<9?0:1;
+      m.position.set(rnd(-.045,.045),.027+layer*.006,rnd(-.052,.052)); m.rotation.y=rnd(0,6.28); m.scale.setScalar(1.15); g.add(m); }
+    tray.userData.action=locked?"locked:"+t.rank:"tool:"+t.id; tray.userData.hl=trayMat;
+    const lab=labelSprite(t.name,locked?"#8a83a6":t.col==="#26222a"?"#b9add6":t.col,locked?"RANK "+t.rank:""); lab.scale.set(.13,.0485,1); lab.position.set(-.02,.085,0); g.add(lab);
     trays.push({group:g,tray,t,locked});
   });
 }
 function bowl(x,z,col,action,label){
   const g=new THREE.Group(); g.position.set(x,.97,z); scene.add(g);
   const m=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.25,emissive:0x39e6ff,emissiveIntensity:0});
-  const b=new THREE.Mesh(new THREE.CylinderGeometry(.075,.055,.06,28),m); b.position.y=.03; b.castShadow=true; g.add(b);
-  const f=new THREE.Mesh(new THREE.CircleGeometry(.068,28),new THREE.MeshStandardMaterial({color:col,roughness:.4})); f.rotation.x=-Math.PI/2; f.position.y=.055; g.add(f);
+  const b=new THREE.Mesh(new THREE.CylinderGeometry(.072,.052,.06,28),m); b.position.y=.03; b.castShadow=true; g.add(b);
+  const f=new THREE.Mesh(new THREE.CircleGeometry(.066,28),new THREE.MeshStandardMaterial({color:col,roughness:.4})); f.rotation.x=-Math.PI/2; f.position.y=.055; g.add(f);
   b.userData.action=action; b.userData.hl=m; f.userData.action=action; f.userData.hl=m;
-  const lab=labelSprite(label,col); lab.position.set(0,.13,0); g.add(lab); return [b,f];
+  const lab=labelSprite(label,col==="#efe6cf"?"#fff3e0":col); lab.scale.set(.13,.0485,1); lab.position.set(0,.115,0); g.add(lab); return [b,f];
 }
-const sauceBowl=bowl(.95,-.4,"#c8321f","tool:sauce","Sauce"), cheeseBowl=bowl(.95,.4,"#f3d36b","tool:cheese","Cheese");
-const doughBox=new THREE.Group(); doughBox.position.set(.62,.97,-.55); scene.add(doughBox);
+const sauceBowls=SAUCE_IDS.map((k,i)=>bowl(.76,.36+i*.18,SAUCES[k].col,"tool:sauce:"+k,SAUCES[k].name)).flat(), cheeseBowl=bowl(.97,.56,"#f3d36b","tool:cheese","Cheese");
+const doughBox=new THREE.Group(); doughBox.position.set(.8,.97,-.35); scene.add(doughBox);
 { const m=new THREE.MeshStandardMaterial({color:0xd8a46a,roughness:.6,emissive:0x39e6ff,emissiveIntensity:0});
   const b=new THREE.Mesh(new RoundedBoxGeometry(.18,.06,.16,2,.01),m); b.position.y=.03; b.userData.action="dough"; b.userData.hl=m; doughBox.add(b);
   for(let i=0;i<3;i++){ const d=new THREE.Mesh(new THREE.SphereGeometry(.035,16,12),new THREE.MeshStandardMaterial({color:0xf3dfb4,roughness:.8})); d.scale.y=.7; d.position.set(-.05+i*.05,.075,0); d.userData.action="dough"; d.userData.hl=m; doughBox.add(d); }
   const lab=labelSprite("Dough","#ffd23f"); lab.position.set(0,.16,0); doughBox.add(lab); }
+
+/* soda fountain on the cut counter */
+const fountain=new THREE.Group(); fountain.position.set(-1.18,.97,.6); fountain.rotation.y=Math.PI/2; scene.add(fountain);
+const FOUNT_NOZZLE=V3(-1.12,1.006,.6), CUP_SLOTS=[V3(-.76,.985,.52),V3(-.86,.985,.54),V3(-.96,.985,.46)];
+const fountainParts=[];
+{ const red=new THREE.MeshStandardMaterial({color:0xc8321f,roughness:.35,emissive:0x39e6ff,emissiveIntensity:0});
+  const body=new THREE.Mesh(new RoundedBoxGeometry(.2,.34,.16,3,.02),red); body.position.set(0,.19,-.02); body.castShadow=true; fountain.add(body);
+  const base=new THREE.Mesh(new RoundedBoxGeometry(.24,.03,.24,2,.01),MAT.chrome); base.position.y=.015; fountain.add(base);
+  const grate=new THREE.Mesh(new THREE.BoxGeometry(.14,.006,.1),new THREE.MeshStandardMaterial({color:0x222233,roughness:.4,metalness:.6})); grate.position.set(0,.033,.06); fountain.add(grate);
+  const head=new THREE.Mesh(new RoundedBoxGeometry(.2,.05,.1,2,.01),MAT.chrome); head.position.set(0,.29,.1); fountain.add(head);
+  const noz=new THREE.Mesh(new THREE.CylinderGeometry(.008,.011,.03,12),MAT.chrome); noz.position.set(0,.25,.1); fountain.add(noz);
+  const lever=new THREE.Mesh(new RoundedBoxGeometry(.05,.07,.012,2,.004),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.3,emissive:0x39e6ff,emissiveIntensity:0})); lever.position.set(0,.2,.075); fountain.add(lever);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(.18,.08),new THREE.MeshBasicMaterial({map:neonText("COLA","400 120px Bungee","#fff3e0",256,112),transparent:true,toneMapped:false}));
+  sign.position.set(0,.39,0); sign.scale.setScalar(1.3); fountain.add(sign);
+  const stream=new THREE.Mesh(new THREE.CylinderGeometry(.004,.004,.2,8),new THREE.MeshStandardMaterial({color:0x3a160c,roughness:.2,transparent:true,opacity:.85})); stream.position.set(0,.135,.1); stream.visible=false; fountain.add(stream); fountain.userData.stream=stream;
+  for(const o of [body,head,lever,sign,base]){ o.userData.action="drink"; o.userData.hl=o===lever||o===sign?lever.material:red; fountainParts.push(o); }
+  const lab=labelSprite("Cola","#ff4fa3","PINCH TO POUR"); lab.position.set(0,.5,0); fountain.add(lab); }
+const cups=CUP_SLOTS.map(()=>{ const g=new THREE.Group(); g.visible=false; scene.add(g);
+  const cupMat=new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.15,transparent:true,opacity:.35,transmission:0,clearcoat:1});
+  const cup=new THREE.Mesh(new THREE.CylinderGeometry(.032,.024,.09,20,1,true),cupMat); cup.position.y=.045; g.add(cup);
+  const fill=new THREE.Mesh(new THREE.CylinderGeometry(.029,.025,.05,20),new THREE.MeshStandardMaterial({color:0x4a1c0e,roughness:.25})); fill.position.y=.029; g.add(fill);
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(.0325,.0315,.022,20,1,true),new THREE.MeshStandardMaterial({color:0xc8321f,roughness:.4,side:THREE.DoubleSide})); band.position.y=.06; g.add(band);
+  const straw=new THREE.Mesh(new THREE.CylinderGeometry(.003,.003,.11,6),new THREE.MeshStandardMaterial({color:0xff4fa3,roughness:.4})); straw.position.set(.01,.09,0); straw.rotation.z=.15; g.add(straw);
+  return {g,fill};
+});
 
 /* lights */
 scene.add(new THREE.HemisphereLight(0xd8ccff,0x3a2040,1.1));
@@ -630,16 +686,19 @@ function placePizza(p,pos,rotY){ p.g.position.copy(pos); p.g.rotation.y=rotY; p.
 function paintAt(p,kind,lx,lz){
   if(Math.hypot(lx,lz)>PR*.97) return false;
   const px=(lx/PR*.5+.5)*256, py=(lz/PR*.5+.5)*256, br=.036/PR*128, c=p.cx;
-  if(kind==="sauce"){ const g=c.createRadialGradient(px,py,0,px,py,br); g.addColorStop(0,"rgba(196,40,24,.95)"); g.addColorStop(.7,"rgba(188,36,22,.85)"); g.addColorStop(1,"rgba(170,30,18,0)");
-    c.fillStyle=g; c.beginPath(); c.arc(px,py,br,0,7); c.fill(); }
+  const sk=isSauce(kind)?SAUCES[kind.slice(6)]:null;
+  if(sk){ const g=c.createRadialGradient(px,py,0,px,py,br); g.addColorStop(0,`rgba(${sk.rgb},.96)`); g.addColorStop(.7,`rgba(${sk.rgb},.86)`); g.addColorStop(1,`rgba(${sk.rgb},0)`);
+    c.fillStyle=g; c.beginPath(); c.arc(px,py,br,0,7); c.fill();
+    if(kind==="sauce:pesto") for(let i=0;i<5;i++){ c.fillStyle="rgba(40,80,20,.55)"; c.beginPath(); c.arc(px+rnd(-br,br)*.6,py+rnd(-br,br)*.6,rnd(1,2.2),0,7); c.fill(); } }
   else for(let i=0;i<16;i++){ const a=rnd(0,6.28), r=rnd(0,br); c.save(); c.translate(px+Math.cos(a)*r,py+Math.sin(a)*r); c.rotate(rnd(0,3.2)); c.fillStyle=pick(["#f7e08a","#f3d36b","#fbe9a8","#f0cf5e"]); c.fillRect(-5,-1.3,10,2.6); c.restore(); }
-  const m=kind==="sauce"?p.sauce:p.cheese, cell=2*PR/MASK, rr=.038;
+  const m=sk?p.sauce:p.cheese, val=sk?sk.idx:1, cell=2*PR/MASK, rr=.038;
   const i0=Math.max(0,Math.floor((lx-rr+PR)/cell)), i1=Math.min(MASK-1,Math.floor((lx+rr+PR)/cell)), j0=Math.max(0,Math.floor((lz-rr+PR)/cell)), j1=Math.min(MASK-1,Math.floor((lz+rr+PR)/cell));
-  for(let i=i0;i<=i1;i++) for(let j=j0;j<=j1;j++){ const x=-PR+(i+.5)*cell, z=-PR+(j+.5)*cell; if(Math.hypot(x-lx,z-lz)<rr) m[j*MASK+i]=1; }
+  for(let i=i0;i<=i1;i++) for(let j=j0;j<=j1;j++){ const x=-PR+(i+.5)*cell, z=-PR+(j+.5)*cell; if(Math.hypot(x-lx,z-lz)<rr) m[j*MASK+i]=val; }
   p.tex.needsUpdate=true; return true;
 }
-function coverage(m){ let n=0,k=0; const cell=2*PR/MASK;
-  for(let i=0;i<MASK;i++) for(let j=0;j<MASK;j++){ const x=-PR+(i+.5)*cell, z=-PR+(j+.5)*cell; if(Math.hypot(x,z)<PR*.86){ n++; if(m[j*MASK+i]) k++; } } return n?k/n:0; }
+function coverage(m,val=0){ let n=0,k=0; const cell=2*PR/MASK;
+  for(let i=0;i<MASK;i++) for(let j=0;j<MASK;j++){ const x=-PR+(i+.5)*cell, z=-PR+(j+.5)*cell; if(Math.hypot(x,z)<PR*.86){ n++; const v=m[j*MASK+i]; if(val?v===val:v) k++; } } return n?k/n:0; }
+const sauceCov=p=>coverage(p.sauce,SAUCES[p.ticket.sauce].idx);
 function placeTopping(p,id,lx,lz){
   if(Math.hypot(lx,lz)>PR*.92) return false;
   const m=new THREE.Mesh(TGEO[id],TMAT[id]); m.position.set(lx,.016+Math.random()*.002,lz); m.rotation.y=rnd(0,6.28); m.castShadow=true; m.scale.setScalar(.01);
@@ -666,11 +725,12 @@ function genOrder(def){
   const LAY={1:[["all"]],2:[["all","all"],["L","R"],["all","q2"],["all","L"],["R","q4"]],3:[["all","L","R"],["L","R","q1"],["all","q1","q3"],["q1","q2","all"]],4:[["L","R","q1","q4"],["all","q1","q2","q3"],["q1","q2","q3","q4"]]};
   const layout=pick(LAY[Math.min(nE,tops.length)]||LAY[1]);
   const entries=layout.map((region,i)=>({t:tops[i],region,count:REGION_COUNT[region]}));
-  return {entries,bake:day<=1?"medium":pick(["light","medium","medium","well"]),slices:day<=1?8:pick([4,6,8,8])};
+  const sauce=day<=1?"marinara":pick(["marinara","marinara","pesto","alfredo"]);
+  return {entries,sauce,drink:Math.random()<(day<=1?.4:.5),bake:day<=1?"medium":pick(["light","medium","medium","well"]),slices:day<=1?8:pick([4,6,8,8])};
 }
 function scoreBuild(p){
-  const t=p.ticket, sc=coverage(p.sauce), ch=coverage(p.cheese);
-  const sauceS=Math.min(1,Math.max(0,(sc-.25)/.6)), cheeseS=Math.min(1,Math.max(0,(ch-.25)/.6));
+  const t=p.ticket, sc=sauceCov(p), wrong=coverage(p.sauce)-sc, ch=coverage(p.cheese);
+  const sauceS=Math.min(1,Math.max(0,(sc-.25)/.6-wrong*1.2)), cheeseS=Math.min(1,Math.max(0,(ch-.25)/.6));
   let es=0; for(const e of t.entries){ const n=p.pieces.filter(q=>q.id===e.t&&inRegion(e.region,q.x,q.z)).length; es+=Math.max(0,1-Math.abs(n-e.count)/e.count); }
   es/=t.entries.length;
   let stray=0; for(const q of p.pieces){ const regs=t.entries.filter(e=>e.t===q.id); if(!regs.length||!regs.some(e=>inRegion(e.region,q.x,q.z))) stray++; }
@@ -692,7 +752,7 @@ function scoreWait(t){ const allowed=80+25*t.entries.length, w=T-t.orderedAt; re
 const DOOR=V3(-3.4,0,-6.8), REG=V3(0,0,-1.35), PICKUP=V3(1.0,0,-1.35);
 const QUEUE=[REG,V3(.3,0,-2.05),V3(-.25,0,-2.7)];
 const WAIT=[V3(-2.3,0,-3.2),V3(2.3,0,-3.2),V3(-1.3,0,-3.8),V3(1.3,0,-3.8),V3(-.35,0,-4.4),V3(.65,0,-4.7)];
-const G={station:"order",tool:null,tickets:[],sel:null,buildPizza:null,ovens:[null,null],cutQueue:[],customers:[],queue:[],day:null,cutDrag:null,lastPaint:null,lastDrop:null,uid:1,paused:true,waitUsed:[]};
+const G={station:"order",tool:null,tickets:[],sel:null,buildPizza:null,ovens:[null,null],cutQueue:[],customers:[],queue:[],day:null,cutDrag:null,lastPaint:null,lastDrop:null,uid:1,paused:true,waitUsed:[],drinks:0,pour:null};
 let T=0;
 function spawnCustomer(def){
   const g=makeCustomer(def); g.position.copy(DOOR); scene.add(g);
@@ -741,7 +801,7 @@ function grabDough(){
   let t=G.sel&&!G.sel.pizza?G.sel:G.tickets.find(x=>!x.pizza);
   if(!t){ toast("Take an order first"); SFX.sad(); return; }
   const p=makePizza(t); tameReflections(p.g); t.pizza=p; G.sel=t; G.buildPizza=p; placePizza(p,BUILD_POS,-Math.PI/2); SFX.plop();
-  if(!G.tool) G.tool="sauce";
+  if(isSauce(G.tool)||G.tool==="cheese") G.tool=null;
 }
 function sendToOven(){
   const p=G.buildPizza; if(!p) return;
@@ -771,14 +831,27 @@ function serve(){
   G.cutQueue.shift(); if(G.cutQueue[0]) placePizza(G.cutQueue[0],CUT_POS,Math.PI/2);
   const t=p.ticket, c=t.cust;
   const s={wait:scoreWait(t),build:p.scores.build,bake:p.scores.bake,cut:scoreCut(p)};
-  const total=Math.round((s.wait+s.build+s.bake+s.cut)/4), stars=total>=90?3:total>=75?2:total>=55?1:0;
-  const tip=Math.round((1.5+t.entries.length*.6+(t.slices===8?.3:0))*Math.pow(total/100,1.4)*100)/100;
+  if(t.drink){ if(G.drinks>0){ G.drinks--; s.drink=100; updateCups(); } else { s.drink=0; toast(`${t.name} wanted a cola!`); } }
+  const vals=Object.values(s), total=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length), stars=total>=90?3:total>=75?2:total>=55?1:0;
+  const tip=Math.round((1.5+t.entries.length*.6+(t.slices===8?.3:0)+(t.drink&&s.drink?.75:0))*Math.pow(total/100,1.4)*100)/100;
   const xp=total+stars*15;
   scene.remove(p.g); G.tickets=G.tickets.filter(x=>x!==t); if(G.sel===t) G.sel=G.tickets.find(x=>!x.pizza)||null;
   G.waitUsed[c.waitIdx]=false; c.state="pickup"; goTo(c,[PICKUP],()=>{ if(stars>=2) c.hop=T; });
   G.day.served++; G.day.tips+=tip; G.day.scores.push(total); SAVE.money+=tip; SAVE.xp+=xp; store.set("save",SAVE);
   SFX.cash(); showScore(t.name,s,total,stars,tip);
 }
+function pourCola(){
+  if(G.pour) return;
+  if(G.drinks>=3){ toast("The cup tray is full"); SFX.sad(); return; }
+  G.pour={t:0,slot:G.drinks}; SFX.fizz(); fountain.userData.stream.visible=true;
+}
+function updatePour(dt){
+  const P_=G.pour; if(!P_) return; P_.t+=dt/1.1;
+  const cup=cups[P_.slot]; cup.g.visible=true; cup.fill.scale.y=Math.max(.02,Math.min(1,P_.t)); cup.fill.position.y=.004+.025*Math.max(.02,Math.min(1,P_.t));
+  cup.g.position.lerpVectors(FOUNT_NOZZLE,CUP_SLOTS[P_.slot],Math.max(0,(P_.t-.75)/.25));
+  if(P_.t>=1){ fountain.userData.stream.visible=false; G.drinks=Math.min(3,G.drinks+1); G.pour=null; updateCups(); SFX.pick(); toast(`Cola poured (${G.drinks} ready)`); }
+}
+function updateCups(){ cups.forEach((c,i)=>{ if(G.pour&&G.pour.slot===i) return; c.g.visible=i<G.drinks; c.g.position.copy(CUP_SLOTS[i]); c.fill.scale.y=1; c.fill.position.y=.029; }); }
 function sparkAt(pos,n){ for(let i=0;i<n;i++) sparks.push({p:pos.clone().add(V3(rnd(-.12,.12),.03,rnd(-.12,.12))),v:V3(rnd(-.4,.4),rnd(.4,1),rnd(-.4,.4)),life:1}); }
 const sparks=[], sparkGeo=new THREE.SphereGeometry(.006,6,4), sparkMat=neonMat(0xffd23f);
 const sparkMesh=new THREE.InstancedMesh(sparkGeo,sparkMat,200); sparkMesh.count=0; scene.add(sparkMesh);
@@ -798,14 +871,18 @@ function drawIcon(c,id,x,y,s){
     case "wedge": c.beginPath(); c.moveTo(-s,s*.6); c.lineTo(s,s*.6); c.lineTo(s*.4,-s*.7); c.lineTo(-s*.4,-s*.7); c.closePath(); c.fill(); break;
     case "strip": c.fillRect(-s*1.2,-s*.4,s*2.4,s*.8); c.fillStyle=t.col2; c.fillRect(-s*1.2,-s*.08,s*2.4,s*.16); break;
     case "mush": c.beginPath(); c.arc(0,-s*.1,s*.9,Math.PI,0); c.fill(); c.fillRect(-s*.3,-s*.1,s*.6,s*.9); break;
+    case "tomato": c.beginPath(); c.arc(0,0,s,0,7); c.fill(); c.fillStyle=t.col2; for(let i=0;i<4;i++){ const a=i*1.57+.4; c.beginPath(); c.ellipse(Math.cos(a)*s*.5,Math.sin(a)*s*.5,s*.22,s*.12,a,0,7); c.fill(); } break;
+    case "kernel": c.strokeStyle=t.col2; c.lineWidth=s*.12; for(const [a,b] of [[-.45,-.3],[.45,-.35],[0,.1],[-.4,.55],[.45,.5]]){ c.beginPath(); c.arc(a*s,b*s,s*.36,0,7); c.fill(); c.stroke(); } break;
+    case "cube": c.beginPath(); c.roundRect(-s*.8,-s*.8,s*1.6,s*1.6,s*.25); c.fill(); c.strokeStyle=t.col2; c.lineWidth=s*.16; c.beginPath(); c.moveTo(-s*.5,-s*.15); c.lineTo(s*.5,-s*.45); c.moveTo(-s*.5,s*.4); c.lineTo(s*.5,s*.1); c.stroke(); break;
+    case "leaf": c.beginPath(); c.moveTo(-s*1.1,0); c.quadraticCurveTo(0,-s*1.1,s*1.1,0); c.quadraticCurveTo(0,s*1.1,-s*1.1,0); c.fill(); c.strokeStyle=t.col2; c.lineWidth=s*.12; c.beginPath(); c.moveTo(-s*.9,0); c.lineTo(s*.9,0); c.stroke(); break;
   }
   c.restore();
 }
 function drawTicketPizza(cv,t){
   const c=cv.getContext("2d"), S=cv.width, R=S*.44, cx=S/2, cy=S/2; c.clearRect(0,0,S,S);
   c.fillStyle="#e3b46a"; c.beginPath(); c.arc(cx,cy,R+S*.03,0,7); c.fill();
-  c.fillStyle="#d2462e"; c.beginPath(); c.arc(cx,cy,R,0,7); c.fill();
-  c.fillStyle="rgba(247,224,138,.85)"; c.beginPath(); c.arc(cx,cy,R*.93,0,7); c.fill();
+  c.fillStyle=SAUCES[t.sauce||"marinara"].col; c.beginPath(); c.arc(cx,cy,R,0,7); c.fill();
+  c.fillStyle="rgba(247,224,138,.85)"; c.beginPath(); c.arc(cx,cy,R*.86,0,7); c.fill();
   const regs=t.entries.map(e=>e.region);
   c.strokeStyle="rgba(42,35,64,.55)"; c.lineWidth=S*.012; c.setLineDash([S*.03,S*.02]);
   if(regs.some(r=>r!=="all")){ c.beginPath(); c.moveTo(cx,cy-R); c.lineTo(cx,cy+R); c.stroke(); }
@@ -819,6 +896,15 @@ function drawTicketPizza(cv,t){
     drawIcon(c,e.t,x-s*1.1,y,s);
     c.font=`700 ${Math.round(S*.1)}px Rubik, sans-serif`; c.fillStyle="#2a2340"; c.textAlign="left"; c.textBaseline="middle"; c.fillText("×"+e.count,x+s*.2,y+1);
   });
+  if(t.drink) drawCola(c,S*.88,S*.15,S*.1);
+}
+function drawCola(c,x,y,s){
+  c.save(); c.translate(x,y);
+  c.fillStyle="#fffaf0"; c.beginPath(); c.arc(0,0,s*1.35,0,7); c.fill(); c.strokeStyle="#ff4fa3"; c.lineWidth=s*.16; c.stroke();
+  c.fillStyle="#c8321f"; c.beginPath(); c.moveTo(-s*.6,-s*.7); c.lineTo(s*.6,-s*.7); c.lineTo(s*.42,s*.85); c.lineTo(-s*.42,s*.85); c.closePath(); c.fill();
+  c.fillStyle="#fff"; c.fillRect(-s*.55,-s*.25,s*1.1,s*.3);
+  c.strokeStyle="#ff4fa3"; c.lineWidth=s*.14; c.beginPath(); c.moveTo(s*.1,-s*.7); c.lineTo(s*.4,-s*1.2); c.stroke();
+  c.restore();
 }
 function bakeShort(b){ return b==="light"?"LIGHT":b==="medium"?"MED":"WELL"; }
 let railSig="";
@@ -831,7 +917,7 @@ function renderRail(){
       b.setAttribute("aria-label",`${t.name}'s ticket`);
       const st=t.pizza?{build:"BUILD",oven:"OVEN",cut:"CUT"}[t.pizza.stage]:"";
       b.innerHTML=`${st?`<span class="stage">${st}</span>`:""}<div class="tn"><span>${t.name}</span><span>#${t.id}</span></div><canvas width="196" height="196"></canvas>
-        <div class="tf"><span>${bakeShort(t.bake)}</span><span>${t.slices} SLICES</span></div><div class="pat"><i></i></div>`;
+        <div class="tf"><span>${bakeShort(t.bake)}</span><span style="color:${t.sauce==="alfredo"?"#a08a50":SAUCES[t.sauce].col}">${SAUCES[t.sauce].short}</span><span>${t.slices} SL${t.drink?" +COLA":""}</span></div><div class="pat"><i></i></div>`;
       drawTicketPizza(b.querySelector("canvas"),t);
       b.onclick=()=>{ G.sel=t; SFX.click(); if(!t.pizza&&G.station!=="build") setStation("build"); };
       rail.appendChild(b);
@@ -846,8 +932,8 @@ function renderBigTicket(){
   const t=activeTicket(); $("bigTicket").hidden=!t||G.station==="order";
   if(!t) return; const sig=t.id+G.station; if(sig===bigSig) return; bigSig=sig;
   $("btName").textContent=`${t.name}’s order`; drawTicketPizza($("btCanvas"),t);
-  $("btList").innerHTML=t.entries.map(e=>`<div><span>${TOP[e.t].name}</span><span>${e.count} · ${REGION_LABEL[e.region]}</span></div>`).join("")+
-    `<div><span>Bake</span><span>${BAKE[t.bake].label}</span></div><div><span>Cut</span><span>${t.slices} slices</span></div>`;
+  $("btList").innerHTML=`<div><span>Sauce</span><span>${SAUCES[t.sauce].name}</span></div>`+t.entries.map(e=>`<div><span>${TOP[e.t].name}</span><span>${e.count} · ${REGION_LABEL[e.region]}</span></div>`).join("")+
+    `<div><span>Bake</span><span>${BAKE[t.bake].label}</span></div><div><span>Cut</span><span>${t.slices} slices</span></div>`+(t.drink?`<div><span>Drink</span><span>Cola</span></div>`:"");
 }
 
 /* =========================================================
@@ -856,7 +942,7 @@ function renderBigTicket(){
 let ctxSig="";
 function renderCtx(){
   const st=G.station, reg=G.queue[0], p=G.buildPizza, cp=G.cutQueue[0];
-  const sig=[st,reg&&reg.state==="atReg"?reg.def.name:"",!!p,G.ovens.map(o=>o?o.id:0).join(),cp?cp.id:0,cp?cp.cuts.length:0,G.tickets.length].join("|");
+  const sig=[st,reg&&reg.state==="atReg"?reg.def.name:"",!!p,G.ovens.map(o=>o?o.id:0).join(),cp?cp.id:0,cp?cp.cuts.length:0,G.tickets.length,G.drinks,!!G.pour,p?p.ticket.id:0].join("|");
   if(sig===ctxSig) return updateCtx(); ctxSig=sig; const el=$("ctx");
   if(st==="order"){
     const atReg=reg&&reg.state==="atReg";
@@ -865,7 +951,7 @@ function renderCtx(){
     $("bTake").onclick=takeOrder;
   } else if(st==="build"){
     el.innerHTML=`<h3>Build</h3><p id="bText"></p>
-      <div class="meterRow"><span><span>Sauce</span><b id="mS">0%</b></span><div class="pat" style="height:6px;background:rgba(255,255,255,.12);border-radius:4px;overflow:hidden"><i id="mSb" style="display:block;height:100%;width:0;background:#d2462e"></i></div></div>
+      <div class="meterRow"><span><span id="mSl">Sauce</span><b id="mS">0%</b></span><div class="pat" style="height:6px;background:rgba(255,255,255,.12);border-radius:4px;overflow:hidden"><i id="mSb" style="display:block;height:100%;width:0;background:#d2462e"></i></div></div>
       <div class="meterRow"><span><span>Cheese</span><b id="mC">0%</b></span><div class="pat" style="height:6px;background:rgba(255,255,255,.12);border-radius:4px;overflow:hidden"><i id="mCb" style="display:block;height:100%;width:0;background:#f3d36b"></i></div></div>
       <div class="row"><button class="pink" id="bOven" ${p?"":"disabled"}>Send to oven</button><button id="bDough" ${p?"disabled":""}>Grab dough</button><button id="bToss" ${p?"":"disabled"}>Toss</button></div>`;
     $("bOven").onclick=sendToOven; $("bDough").onclick=grabDough; $("bToss").onclick=tossPizza;
@@ -875,17 +961,18 @@ function renderCtx(){
       :`<p>Oven ${i+1} is empty.</p>`).join("")+`<p>Pull each pie out when the needle sits in the green box.</p>`;
     G.ovens.forEach((o,i)=>{ if(o) $("bOut"+i).onclick=()=>takeOut(i); });
   } else if(st==="cut"){
-    el.innerHTML=cp?`<h3>Cut</h3><p>${cp.ticket.name} wants <b style="color:var(--cream)">${cp.ticket.slices} slices</b>. Pinch and drag straight across the centre ${cp.ticket.slices/2} times.</p>
+    const drinkLine=`<p>Cola cups ready: <b style="color:var(--cream)">${G.drinks}</b>${cp&&cp.ticket.drink?` · ${cp.ticket.name} ordered a cola`:""}</p><div class="row"><button id="bCola" ${G.pour||G.drinks>=3?"disabled":""}>Pour cola</button></div>`;
+    el.innerHTML=(cp?`<h3>Cut & serve</h3><p>${cp.ticket.name} wants <b style="color:var(--cream)">${cp.ticket.slices} slices</b>. Pinch and drag straight across the centre ${cp.ticket.slices/2} times.</p>
       <p id="cutN"></p><div class="row"><button class="big pink" id="bServe" ${cp.cuts.length?"":"disabled"}>Serve ${cp.ticket.name}</button></div>${G.cutQueue.length>1?`<p>${G.cutQueue.length-1} more pie waiting.</p>`:""}`
-      :`<h3>Cut</h3><p>No pies on the board. Take one out of the oven first.</p>`;
-    if(cp) $("bServe").onclick=serve;
+      :`<h3>Cut & serve</h3><p>No pies on the board. Take one out of the oven first.</p>`)+drinkLine;
+    if(cp) $("bServe").onclick=serve; $("bCola").onclick=pourCola;
   }
   updateCtx();
 }
 function updateCtx(){
   if(G.station==="build"){ const p=G.buildPizza, t=G.buildPizza?.ticket||G.sel;
-    const tx=$("bText"); if(tx) tx.textContent=p?"Pinch the sauce, then paint the pie. Same for cheese. Pinch a topping tray, then pinch on the pie to drop pieces.":t?`Grab dough to start ${t.name}’s pie.`:"No open tickets. Take an order first.";
-    const s=p?coverage(p.sauce):0, c=p?coverage(p.cheese):0; if($("mS")){ $("mS").textContent=Math.round(s*100)+"%"; $("mSb").style.width=s*100+"%"; $("mC").textContent=Math.round(c*100)+"%"; $("mCb").style.width=c*100+"%"; } }
+    const tx=$("bText"); if(tx) tx.textContent=p?`Pinch the ${SAUCES[p.ticket.sauce].name} bowl, then paint the pie. Same for cheese. Pinch a topping tray, then pinch on the pie to drop pieces.`:t?`Grab dough to start ${t.name}’s pie.`:"No open tickets. Take an order first.";
+    const s=p?sauceCov(p):0, c=p?coverage(p.cheese):0; if($("mS")){ const sk=SAUCES[(p?p.ticket:t)?.sauce||"marinara"]; $("mSl").textContent="Sauce · "+sk.name; $("mSb").style.background=sk.col; $("mS").textContent=Math.round(s*100)+"%"; $("mSb").style.width=s*100+"%"; $("mC").textContent=Math.round(c*100)+"%"; $("mCb").style.width=c*100+"%"; } }
   if(G.station==="bake") G.ovens.forEach((o,i)=>{ if(o&&$("on"+i)){ $("on"+i).style.left=Math.min(100,o.bake*100)+"%"; const d=o.bake-BAKE[o.ticket.bake].t; $("ob"+i).textContent=d<-.05?"baking":d<=.05?"READY":"burning!"; } });
   if(G.station==="cut"&&$("cutN")){ const p=G.cutQueue[0]; $("cutN").textContent=`Cuts made: ${p.cuts.length} of ${p.ticket.slices/2}`; }
 }
@@ -907,21 +994,27 @@ function computeHint(){
   if(st==="order") return G.queue[0]?.state==="atReg"?"Pinch the gold bell (or the Take order button) to take the order.":G.tickets.some(t=>!t.pizza)?"Go to Build and start the next pie.":"";
   if(st==="build"){
     if(!p) return G.tickets.some(t=>!t.pizza)?"Pinch the dough box to start a pie.":"Take an order at the window first.";
-    if(coverage(p.sauce)<.6) return G.tool==="sauce"?"Hold the pinch and sweep across the pie to spread sauce.":"Pinch the sauce bowl.";
+    const sk=SAUCES[p.ticket.sauce];
+    if(coverage(p.sauce)-sauceCov(p)>.15) return `Wrong sauce on there! This one is ${sk.name}. Toss it or paint ${sk.name} over it.`;
+    if(sauceCov(p)<.6) return G.tool==="sauce:"+p.ticket.sauce?`Hold the pinch and sweep across the pie to spread ${sk.name}.`:`This pie needs ${sk.name}. Pinch the ${sk.name} bowl.`;
     if(coverage(p.cheese)<.6) return G.tool==="cheese"?"Hold the pinch and sweep to cover it with cheese.":"Now pinch the cheese bowl.";
     return "Pinch a topping tray, then pinch on the pie where the ticket shows. Hold to sprinkle. Then Send to oven.";
   }
   if(st==="bake") return G.ovens.some(Boolean)?"Watch the needle. Take each pie out in the green zone.":"Ovens are empty. Build a pie first.";
-  if(st==="cut") return G.cutQueue[0]?(G.cutQueue[0].cuts.length<G.cutQueue[0].ticket.slices/2?"Pinch beside the pie and drag straight across the middle.":"Looks sliced. Hit Serve."):"";
+  if(st==="cut"){ const cp=G.cutQueue[0]; if(!cp) return G.drinks<3?"Pour a cola at the fountain while you wait.":"";
+    if(cp.cuts.length<cp.ticket.slices/2) return "Pinch beside the pie and drag straight across the middle.";
+    if(cp.ticket.drink&&!G.drinks) return G.pour?"Pouring the cola…":`${cp.ticket.name} wants a cola. Pinch the soda fountain first.`;
+    return "Looks sliced. Hit Serve."; }
   return "";
 }
 let toastT=0; function toast(s){ G.vrToast={s,t:performance.now()}; const t=$("toast"); t.textContent=s; t.classList.remove("go"); void t.offsetWidth; t.classList.add("go"); }
-function toolName(id){ return id==="sauce"?"SAUCE":id==="cheese"?"CHEESE":TOP[id]?TOP[id].name.toUpperCase():""; }
+function toolName(id){ return isSauce(id)?SAUCES[id.slice(6)].short:id==="cheese"?"CHEESE":TOP[id]?TOP[id].name.toUpperCase():""; }
 
 /* score card and day summary */
+const scoreRows=s=>[["Waiting",s.wait],["Building",s.build],["Baking",s.bake],["Cutting",s.cut],...(s.drink!=null?[["Cola",s.drink]]:[])];
 function showScore(name,s,total,stars,tip){
   G.paused=true; G.lastScore={name,s,total,stars,tip,quote:QUOTES.find(q=>total>=q[0])[1]}; $("scName").textContent=`${name}’s verdict · ${total}%`;
-  $("scRows").innerHTML=[["Waiting",s.wait],["Building",s.build],["Baking",s.bake],["Cutting",s.cut]].map(([k,v])=>`<div class="sRow"><span>${k}</span><div class="bar"><i data-w="${v}"></i></div><b>${v}</b></div>`).join("");
+  $("scRows").innerHTML=scoreRows(s).map(([k,v])=>`<div class="sRow"><span>${k}</span><div class="bar"><i data-w="${v}"></i></div><b>${v}</b></div>`).join("");
   $("scStars").innerHTML="<b>"+"★".repeat(stars)+"</b>"+"★".repeat(3-stars);
   $("scQuote").textContent=`“${QUOTES.find(q=>total>=q[0])[1]}”`; $("scTip").textContent="TIP "+money(tip);
   $("scoreCard").hidden=false; requestAnimationFrame(()=>document.querySelectorAll("#scRows i").forEach(i=>i.style.width=i.dataset.w+"%"));
@@ -948,7 +1041,7 @@ function tameReflections(root=scene){ root.traverse(o=>{ if(o.isMesh&&o.material
 function startDay(){
   for(const c of G.customers) scene.remove(c.g);
   for(const p of [G.buildPizza,...G.ovens,...G.cutQueue]) if(p) scene.remove(p.g);
-  Object.assign(G,{tickets:[],sel:null,buildPizza:null,ovens:[null,null],cutQueue:[],customers:[],queue:[],waitUsed:[],tool:null,paused:false});
+  Object.assign(G,{tickets:[],sel:null,buildPizza:null,ovens:[null,null],cutQueue:[],customers:[],queue:[],waitUsed:[],tool:null,paused:false,drinks:0,pour:null}); fountain.userData.stream.visible=false; updateCups();
   const roster=[...CUSTOMERS].sort(()=>Math.random()-.5);
   G.day={total:Math.min(3+SAVE.day,8),spawned:0,served:0,tips:0,scores:[],next:T+2.5,roster,rankStart:rankOf(SAVE.xp)};
   buildTrays(); tameReflections(); setStation("order"); railSig=ctxSig=""; updateTop(); toast(`Day ${SAVE.day}: doors open!`);
@@ -968,7 +1061,7 @@ function updateTop(){
 /* =========================================================
    Camera and stations
    ========================================================= */
-const VIEWS={order:{pos:V3(0,1.6,.35),look:V3(0,1.12,-3)},build:{pos:V3(.08,1.5,0),look:V3(.95,.86,0)},bake:{pos:V3(0,1.74,.08),look:V3(0,.95,1.3)},cut:{pos:V3(-.08,1.5,0),look:V3(-.95,.86,0)}};
+const VIEWS={order:{pos:V3(0,1.6,.35),look:V3(0,1.12,-3)},build:{pos:V3(.08,1.5,.12),look:V3(.95,.86,.16)},bake:{pos:V3(0,1.74,.08),look:V3(0,.95,1.3)},cut:{pos:V3(-.08,1.5,0),look:V3(-.95,.86,0)}};
 const camPos=VIEWS.order.pos.clone(), camLook=VIEWS.order.look.clone();
 function setStation(st){ if(G.station!==st) SFX.click(); G.station=st; ctxSig=""; bigSig=""; G.cutDrag=null; if(vrOn) placeRig(); }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>setStation(b.dataset.st));
@@ -983,9 +1076,9 @@ const cutLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(0,0,0)
 cutLine.material.color.setScalar(2); cutLine.visible=false; scene.add(cutLine);
 function stationTargets(){
   if(G.station==="order") return [bell.userData.dome];
-  if(G.station==="build") return [...trays.filter(t=>!t.locked).map(t=>t.tray),...sauceBowl,...cheeseBowl,...doughBox.children.filter(o=>o.userData.action)];
+  if(G.station==="build") return [...trays.map(t=>t.tray),...sauceBowls,...cheeseBowl,...doughBox.children.filter(o=>o.userData.action)];
   if(G.station==="bake") return ovenMouth;
-  return [cutPlane];
+  return [cutPlane,...fountainParts];
 }
 function interact(){
   P.pressed=P.down&&!P.wasDown; P.released=!P.down&&P.wasDown; P.wasDown=P.down;
@@ -999,25 +1092,26 @@ function interact(){
   if(overlayOpen||G.paused) return 0;
   ndc.set(P.x/innerWidth*2-1,-(P.y/innerHeight)*2+1); ray.setFromCamera(ndc,camera);
   const hit=ray.intersectObjects(stationTargets(),false)[0];
-  const obj=hit&&G.station!=="cut"?hit.object:null;
+  const obj=hit&&hit.object!==cutPlane?hit.object:null;
   if(hover3D!==obj){ if(hover3D?.userData.hl) hover3D.userData.hl.emissiveIntensity=0; hover3D=obj; if(obj?.userData.hl) obj.userData.hl.emissiveIntensity=obj.userData.action==="order"?.6:.45; }
   if(G.station==="order"&&P.pressed&&obj) takeOrder();
   if(G.station==="bake"&&P.pressed&&obj){ const i=+obj.userData.action.split(":")[1]; G.ovens[i]?takeOut(i):toast(`Oven ${i+1} is empty`); }
   if(G.station==="build"){
-    if(P.pressed&&obj){ const a=obj.userData.action; if(a.startsWith("tool:")){ G.tool=a.slice(5); SFX.pick(); return 0; } if(a==="dough"){ grabDough(); return 0; } }
+    if(P.pressed&&obj){ act(obj.userData.action); return 0; }
     const p=G.buildPizza;
     if(p&&G.tool&&P.down){ const ph=ray.intersectObject(p.top,false)[0];
       if(ph){ const L=p.g.worldToLocal(ph.point.clone());
-        if(G.tool==="sauce"||G.tool==="cheese"){ if(!G.lastPaint||Math.hypot(L.x-G.lastPaint.x,L.z-G.lastPaint.z)>.008){ if(G.lastPaint){ const n=Math.ceil(Math.hypot(L.x-G.lastPaint.x,L.z-G.lastPaint.z)/.012); for(let k=1;k<=n;k++) paintAt(p,G.tool,G.lastPaint.x+(L.x-G.lastPaint.x)*k/n,G.lastPaint.z+(L.z-G.lastPaint.z)*k/n); } else paintAt(p,G.tool,L.x,L.z); G.lastPaint=L; if(Math.random()<.3) SFX.squish(); } }
+        if(isSauce(G.tool)||G.tool==="cheese"){ if(!G.lastPaint||Math.hypot(L.x-G.lastPaint.x,L.z-G.lastPaint.z)>.008){ if(G.lastPaint){ const n=Math.ceil(Math.hypot(L.x-G.lastPaint.x,L.z-G.lastPaint.z)/.012); for(let k=1;k<=n;k++) paintAt(p,G.tool,G.lastPaint.x+(L.x-G.lastPaint.x)*k/n,G.lastPaint.z+(L.z-G.lastPaint.z)*k/n); } else paintAt(p,G.tool,L.x,L.z); G.lastPaint=L; if(Math.random()<.3) SFX.squish(); } }
         else if(P.pressed||(G.lastDrop&&Math.hypot(L.x-G.lastDrop.x,L.z-G.lastDrop.z)>.05)){ if(placeTopping(p,G.tool,L.x,L.z)){ G.lastDrop=L; SFX.plop(); } } } }
   }
   if(G.station==="cut"){
     const p=G.cutQueue[0];
-    if(p&&hit){ const L=p.g.worldToLocal(hit.point.clone());
+    if(P.pressed&&obj&&!G.cutDrag){ act(obj.userData.action); return 0; }
+    if(p&&hit&&hit.object===cutPlane){ const L=p.g.worldToLocal(hit.point.clone());
       if(P.pressed) G.cutDrag={a:L};
       if(G.cutDrag){ const A=p.g.localToWorld(V3(G.cutDrag.a.x,.02,G.cutDrag.a.z)), B=p.g.localToWorld(V3(L.x,.02,L.z)); cutLine.geometry.setFromPoints([A,B]); cutLine.visible=true; }
       if(P.released&&G.cutDrag){ addCut(p,G.cutDrag.a,L); G.cutDrag=null; cutLine.visible=false; } }
-    if(!P.down&&G.cutDrag&&!hit){ G.cutDrag=null; cutLine.visible=false; }
+    if(!P.down&&G.cutDrag&&(!hit||hit.object!==cutPlane)){ G.cutDrag=null; cutLine.visible=false; }
   }
   if(P.released){ G.lastPaint=null; G.lastDrop=null; }
   return 0;
@@ -1037,7 +1131,7 @@ function frame(now){
   const dt=Math.min(.1,(now-prev)/1000); prev=now; const t=now/1000;
   if(!G.paused) T+=dt;
   const xr=renderer.xr.isPresenting; const dwell=vrOn?0:interact(); if(xr) xrInteract();
-  if(!G.paused){ updateDay(); }
+  if(!G.paused){ updateDay(); } updatePour(dt);
   updateCustomers(G.paused?dt*.5:dt);
   // ovens bake whether or not you're watching
   G.ovens.forEach((p,i)=>{ ovenGlow[i].intensity=p?.55+Math.sin(t*7+i)*.08:0; ovenMouth[i].material.emissiveIntensity=p?.6:.05; if(!p||G.paused) return;
@@ -1053,9 +1147,9 @@ function frame(now){
   // camera glides between stations
   const v=VIEWS[G.station], k=1-Math.exp(-dt*6); camPos.lerp(v.pos,k); camLook.lerp(v.look,k);
   if(!vrOn){ camera.position.copy(camPos); camera.position.y+=Math.sin(t*1.1)*.004; camera.lookAt(camLook); }
-  else if(!xr){ camera.position.set(0,1.62,0); camera.rotation.set(-.32,0,0); }
+  else if(!xr){ camera.position.set(0,1.62,0); camera.rotation.set(window.__vrPitch??-.3,0,0); }
   if(scene.userData.jukebox) scene.userData.jukebox.material.color.setScalar(1.2+Math.sin(t*4)*.3);
-  if(xr) renderer.render(scene,camera); else composer.render(); drawHand(dwell);
+  if(xr||window.__plain) renderer.render(scene,camera); else composer.render(); drawHand(dwell);
   uiT+=dt; if(uiT>.12){ uiT=0; renderRail(); renderCtx(); renderBigTicket(); updateBadges(); updateTop(); hintText(computeHint());
     $("tool").textContent=G.station==="build"&&G.tool?`Holding: ${toolName(G.tool)}`:"";
     const ch=$("chipHand"); ch.classList.toggle("on",P.seen); ch.querySelector("span").textContent=P.seen?(P.down?"Pinching":"Hand found"):"Show your hand";
@@ -1067,34 +1161,46 @@ function frame(now){
    VR mode (WebXR): the same diner, played with headset hands or controllers.
    You snap between four standing spots; floating neon panels replace the screen HUD.
    ========================================================= */
-const STAND={order:{pos:V3(0,0,-.15),yaw:0},build:{pos:V3(.42,0,0),yaw:-Math.PI/2},bake:{pos:V3(0,0,.72),yaw:Math.PI},cut:{pos:V3(-.42,0,0),yaw:Math.PI/2}};
+const STAND={order:{pos:V3(0,0,-.15),yaw:0},build:{pos:V3(.5,0,0),yaw:-Math.PI/2},bake:{pos:V3(0,0,.72),yaw:Math.PI},cut:{pos:V3(-.5,0,0),yaw:Math.PI/2}};
+// where the floating panels sit for each standing spot, in rig space: [x, y, z, tilt, scale]
+// they always float in open air in front of you, never inside the counter, register or ovens
+const VR_LAYOUT={
+  order:{main:[0,1.25,-.6,-.62,.85], tick:[0,1.98,-1.05,.18,.95], over:[0,1.45,-.78,-.12,.95]},
+  build:{main:[0,1.4,-.9,-.12,1],    tick:[0,1.93,-.95,.22,1],    over:[0,1.42,-.86,-.12,1]},
+  bake: {main:[0,1.6,-.52,-.1,.66],  tick:null,                   over:[0,1.6,-.5,-.1,.66]},
+  cut:  {main:[0,1.4,-.9,-.12,1],    tick:[0,1.93,-.95,.22,1],    over:[0,1.42,-.86,-.12,1]},
+};
 let vrOn=false, vrOverlay=null, vrPreview=false;
-function placeRig(){ const s=STAND[G.station]; rig.position.copy(s.pos); rig.rotation.set(0,s.yaw,0); }
+function placeRig(){ const s=STAND[G.station]; rig.position.copy(s.pos); rig.rotation.set(0,s.yaw,0); placePanels(); }
+function poseMesh(m,L){ m.position.set(L[0],L[1],L[2]); m.rotation.set(L[3],0,0); m.scale.setScalar(L[4]); }
+function placePanels(){ const L=VR_LAYOUT[G.station]; poseMesh(mainP.mesh,L.main); poseMesh(overP.mesh,L.over); if(L.tick) poseMesh(ticketP.mesh,L.tick); }
 function vrRR(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
 function wrapText(c,text,x,y,maxW,lh){ let line=""; for(const w of String(text).split(" ")){ const t=line?line+" "+w:w; if(c.measureText(t).width>maxW&&line){ c.fillText(line,x,y); y+=lh; line=w; } else line=t; } if(line) c.fillText(line,x,y); return y+lh; }
 class Panel{
-  constructor(wm,hm,pw,ph,pos,rotY=0){
-    this.cv=document.createElement("canvas"); this.cv.width=pw; this.cv.height=ph; this.c=this.cv.getContext("2d");
-    this.tex=new THREE.CanvasTexture(this.cv); this.tex.colorSpace=THREE.SRGBColorSpace; this.pw=pw; this.ph=ph; this.btns=[]; this.hover=null;
-    this.mesh=new THREE.Mesh(new THREE.PlaneGeometry(wm,hm),new THREE.MeshBasicMaterial({map:this.tex,transparent:true,toneMapped:false}));
-    this.mesh.position.copy(pos); this.mesh.rotation.y=rotY; this.mesh.renderOrder=10; this.mesh.visible=false; this.mesh.userData.panel=this; rig.add(this.mesh);
+  // wm x hm metres, drawn on a logical pw x ph canvas rendered at res x for sharp text in the headset
+  constructor(wm,hm,pw,ph,order=10,res=1.6){
+    this.res=res; this.cv=document.createElement("canvas"); this.cv.width=Math.round(pw*res); this.cv.height=Math.round(ph*res); this.c=this.cv.getContext("2d");
+    this.tex=new THREE.CanvasTexture(this.cv); this.tex.colorSpace=THREE.SRGBColorSpace; this.tex.anisotropy=8; this.pw=pw; this.ph=ph; this.btns=[]; this.hover=null;
+    this.mesh=new THREE.Mesh(new THREE.PlaneGeometry(wm,hm),new THREE.MeshBasicMaterial({map:this.tex,transparent:true,toneMapped:false,depthWrite:false}));
+    this.mesh.renderOrder=order; this.mesh.visible=false; this.mesh.userData.panel=this; rig.add(this.mesh);
   }
-  begin(){ this.c.clearRect(0,0,this.pw,this.ph); this.btns=[]; return this.c; }
+  begin(){ const c=this.c; c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,this.cv.width,this.cv.height); c.setTransform(this.res,0,0,this.res,0,0); c.globalAlpha=1; this.btns=[]; return c; }
   end(){ this.tex.needsUpdate=true; }
-  bg(border="#ff4fa3"){ const c=this.c; vrRR(c,6,6,this.pw-12,this.ph-12,34); c.fillStyle="rgba(18,11,38,.93)"; c.fill(); c.lineWidth=6; c.strokeStyle=border; c.shadowColor=border; c.shadowBlur=20; c.stroke(); c.shadowBlur=0; }
+  bg(border="#ff4fa3"){ const c=this.c; vrRR(c,6,6,this.pw-12,this.ph-12,34); c.fillStyle="#100a22"; c.fill(); c.lineWidth=6; c.strokeStyle=border; c.shadowColor=border; c.shadowBlur=20; c.stroke(); c.shadowBlur=0; }
   btn(x,y,w,h,label,fn,{on=true,accent="#39e6ff",size=30,active=false,id=label}={}){
     const c=this.c, hov=this.hover===id&&on; this.btns.push({x,y,w,h,id,fn,on});
-    c.save(); c.globalAlpha=on?1:.32; vrRR(c,x,y,w,h,18); c.fillStyle=active?accent:hov?"rgba(57,230,255,.28)":"rgba(255,255,255,.07)"; c.fill();
-    c.lineWidth=4; c.strokeStyle=accent; c.shadowColor=accent; c.shadowBlur=hov?22:8; c.stroke(); c.shadowBlur=0;
+    c.save(); c.globalAlpha=on?1:.32; vrRR(c,x,y,w,h,18); c.fillStyle=active?accent:hov?"rgba(57,230,255,.3)":"rgba(255,255,255,.08)"; c.fill();
+    c.lineWidth=hov?6:4; c.strokeStyle=hov?"#ffffff":accent; c.shadowColor=accent; c.shadowBlur=hov?24:8; c.stroke(); c.shadowBlur=0;
     c.fillStyle=active?"#120b26":"#fff3e0"; c.font=`700 ${size}px Rubik, sans-serif`; c.textAlign="center"; c.textBaseline="middle"; c.fillText(label,x+w/2,y+h/2+1); c.restore();
   }
   area(x,y,w,h,id,fn){ this.btns.push({x,y,w,h,id,fn,on:true}); }
   at(uv){ const x=uv.x*this.pw, y=(1-uv.y)*this.ph; return this.btns.find(b=>b.on&&x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h)||null; }
 }
-const mainP=new Panel(.6,.445,1024,760,V3(-.56,1.36,-.6),.75);
-const ticketP=new Panel(.92,.25,1500,408,V3(.14,1.62,-.82),0);
-const overP=new Panel(.74,.53,1024,740,V3(0,1.42,-.6),0);
-const toastP=new Panel(.62,.08,1024,132,V3(.14,1.45,-.8),0);
+const mainP=new Panel(.84,.62,1024,756,10);
+const ticketP=new Panel(.92,.25,1500,408,10,1.2);
+const overP=new Panel(.76,.55,1024,740,20);
+const toastP=new Panel(.7,.075,1024,112,30,1.2);
+mainP.mesh.add(toastP.mesh); rig.remove(toastP.mesh); toastP.mesh.position.set(0,.31+.05,.012);
 const ALL_PANELS=[mainP,ticketP,overP,toastP];
 const tkCanvas=document.createElement("canvas"); tkCanvas.width=tkCanvas.height=260;
 const sTkCanvas=document.createElement("canvas"); sTkCanvas.width=sTkCanvas.height=180;
@@ -1114,11 +1220,12 @@ function drawMain(){
   c.textAlign="left";
   if(t){ vrRR(c,28,112,310,500,18); c.fillStyle="#fffaf0"; c.fill();
     c.fillStyle="#2a2340"; c.font="700 28px Rubik, sans-serif"; c.fillText(`${t.name}’s order`,46,152);
-    drawTicketPizza(tkCanvas,t); c.drawImage(tkCanvas,53,166,260,260);
-    c.font="600 21px Rubik, sans-serif"; let y=456;
-    for(const e of t.entries){ c.fillText(`${TOP[e.t].name}`,46,y); c.textAlign="right"; c.fillText(`${e.count} · ${REGION_LABEL[e.region]}`,322,y); c.textAlign="left"; y+=30; }
-    c.fillText("Bake",46,y); c.textAlign="right"; c.fillText(BAKE[t.bake].label,322,y); c.textAlign="left"; y+=30;
-    c.fillText("Cut",46,y); c.textAlign="right"; c.fillText(`${t.slices} slices`,322,y); c.textAlign="left";
+    drawTicketPizza(tkCanvas,t); c.drawImage(tkCanvas,73,164,220,220);
+    c.font="600 20px Rubik, sans-serif"; let y=410;
+    const row=(k,v,col)=>{ c.fillStyle=col||"#2a2340"; c.fillText(k,46,y); c.textAlign="right"; c.fillText(v,322,y); c.textAlign="left"; c.fillStyle="#2a2340"; y+=26; };
+    row("Sauce",SAUCES[t.sauce].name,t.sauce==="alfredo"?"#8a7440":SAUCES[t.sauce].col);
+    for(const e of t.entries) row(TOP[e.t].name,`${e.count} · ${REGION_LABEL[e.region]}`);
+    row("Bake",BAKE[t.bake].label); row("Cut",`${t.slices} slices`); if(t.drink) row("Drink","Cola","#c8321f");
   } else { c.font="600 26px Rubik, sans-serif"; c.fillStyle="#b9add6"; wrapText(c,"No ticket yet. Take an order at the window.",40,170,290,36); }
   // station controls
   const X=370, st=G.station; c.font="400 38px Bungee, sans-serif"; c.fillStyle="#39e6ff"; c.shadowColor="#39e6ff"; c.shadowBlur=12;
@@ -1129,8 +1236,8 @@ function drawMain(){
     P_.btn(X,330,320,90,"Take order",takeOrder,{on:!!atReg,accent:"#ff4fa3",size:34}); }
   if(st==="build"){ const p=G.buildPizza;
     wrapText(c,p?"Pinch a bowl, then paint the pie. Pinch a tray, then pinch over the pie to drop pieces.":(t&&!t.pizza?`Pinch the dough box to start ${t.name}’s pie.`:"Take an order first."),X,210,600,34);
-    const s=p?coverage(p.sauce):0, ch=p?coverage(p.cheese):0;
-    for(const [lab,v,col,y] of [["Sauce",s,"#d2462e",300],["Cheese",ch,"#f3d36b",350]]){ c.fillStyle="#b9add6"; c.font="600 22px Rubik"; c.fillText(lab,X,y); c.textAlign="right"; c.fillText(Math.round(v*100)+"%",X+600,y); c.textAlign="left";
+    const sk=SAUCES[(p?p.ticket:t)?.sauce||"marinara"], s=p?sauceCov(p):0, ch=p?coverage(p.cheese):0;
+    for(const [lab,v,col,y] of [["Sauce · "+sk.name,s,sk.col,300],["Cheese",ch,"#f3d36b",350]]){ c.fillStyle="#b9add6"; c.font="600 22px Rubik"; c.fillText(lab,X,y); c.textAlign="right"; c.fillText(Math.round(v*100)+"%",X+600,y); c.textAlign="left";
       vrRR(c,X,y+8,600,12,6); c.fillStyle="rgba(255,255,255,.12)"; c.fill(); if(v>0){ vrRR(c,X,y+8,600*v,12,6); c.fillStyle=col; c.fill(); } }
     if(G.tool){ c.font="400 24px Bungee"; c.fillStyle="#ffd23f"; c.fillText("HOLDING: "+toolName(G.tool),X,410); }
     P_.btn(X,440,200,80,"Grab dough",grabDough,{on:!p}); P_.btn(X+212,440,220,80,"Send to oven",sendToOven,{on:!!p,accent:"#ff4fa3"}); P_.btn(X+444,440,156,80,"Toss",tossPizza,{on:!!p}); }
@@ -1141,8 +1248,10 @@ function drawMain(){
   if(st==="cut"){ const p=G.cutQueue[0];
     if(p){ wrapText(c,`${p.ticket.name} wants ${p.ticket.slices} slices. Pinch beside the pie and drag straight across the centre ${p.ticket.slices/2} times.`,X,210,600,34);
       c.font="400 28px Bungee"; c.fillStyle="#ffd23f"; c.fillText(`CUTS ${p.cuts.length} / ${p.ticket.slices/2}`,X,370);
-      P_.btn(X,400,330,90,`Serve ${p.ticket.name}`,serve,{on:p.cuts.length>0,accent:"#ff4fa3",size:32}); }
-    else wrapText(c,"No pies on the board. Take one out of the oven first.",X,210,600,34); }
+      P_.btn(X,390,330,84,`Serve ${p.ticket.name}`,serve,{on:p.cuts.length>0,accent:"#ff4fa3",size:32}); }
+    else wrapText(c,"No pies on the board. Take one out of the oven first.",X,210,600,34);
+    P_.btn(X+350,390,250,84,G.pour?"Pouring…":"Pour cola",pourCola,{on:!G.pour&&G.drinks<3,accent:"#ffd23f",size:30,id:"cola"});
+    c.font="600 22px Rubik"; c.fillStyle="#e8def8"; c.fillText(`Cola cups ready: ${G.drinks}/3${p&&p.ticket.drink?` · ${p.ticket.name} wants one`:""}`,X,510); }
   // hint + station switcher
   const h=computeHint(); if(h){ c.font="600 22px Rubik"; c.fillStyle="#fff3e0"; wrapText(c,h,X,560,600,30); }
   const counts={order:G.queue.filter(q=>q.state==="atReg").length,build:G.tickets.filter(x=>!x.pizza).length+(G.buildPizza?1:0),bake:G.ovens.filter(Boolean).length,cut:G.cutQueue.length};
@@ -1170,7 +1279,7 @@ function drawTickets(){
 }
 function drawOverlay(){
   const P_=overP, scoreOpen=!$("scoreCard").hidden, dayOpen=!$("daySum").hidden, mode=vrOverlay||(scoreOpen?"score":dayOpen?"day":null);
-  P_.mesh.visible=!!mode; if(!mode) return;
+  P_.mesh.visible=!!mode && vrOn; mainP.mesh.visible=vrOn&&!mode; ticketP.mesh.visible=vrOn&&!mode&&!!VR_LAYOUT[G.station].tick; if(!mode) return;
   const c=P_.begin(); P_.bg(mode==="score"?"#39e6ff":"#ff4fa3"); c.textAlign="center"; c.textBaseline="alphabetic";
   if(mode==="howto"){
     c.font="80px Yellowtail"; c.fillStyle="#ff4fa3"; c.shadowColor="#ff4fa3"; c.shadowBlur=18; c.fillText("Neon Crust VR",512,110); c.shadowBlur=0;
@@ -1178,11 +1287,12 @@ function drawOverlay(){
     let y=180; for(const line of ["Hands: pinch thumb and index to grab or press. Controllers: pull the trigger.",
       "Reach and pinch a bowl or tray to pick it up, then pinch over the pie to paint sauce and cheese or drop toppings.",
       "Point at a panel and pinch to press its buttons. The station buttons snap you to Order, Build, Bake or Cut.",
+      "Each ticket names its sauce: Marinara, Pesto or Alfredo. A cup on the ticket means they want a cola from the fountain at the cut station.",
       "To slice, pinch beside the pie and drag straight across the middle."]) y=wrapText(c,"• "+line,70,y,880,36)+8;
     P_.btn(352,600,320,96,"Start the shift",()=>{ vrOverlay=null; G.paused=false; SFX.bell(); },{accent:"#ff4fa3",size:34});
   } else if(mode==="score"&&G.lastScore){ const L=G.lastScore;
     c.font="400 34px Bungee"; c.fillStyle="#39e6ff"; c.fillText(`${L.name.toUpperCase()}’S VERDICT · ${L.total}%`,512,90);
-    [["Waiting",L.s.wait],["Building",L.s.build],["Baking",L.s.bake],["Cutting",L.s.cut]].forEach(([k,v],i)=>{ const y=140+i*62; c.textAlign="left"; c.font="600 28px Rubik"; c.fillStyle="#fff3e0"; c.fillText(k,90,y+26);
+    const rows=scoreRows(L.s), gap=rows.length>4?52:62; rows.forEach(([k,v],i)=>{ const y=128+i*gap; c.textAlign="left"; c.font="600 28px Rubik"; c.fillStyle="#fff3e0"; c.fillText(k,90,y+26);
       vrRR(c,280,y+6,520,26,13); c.fillStyle="rgba(255,255,255,.1)"; c.fill(); vrRR(c,280,y+6,Math.max(26,520*v/100),26,13); c.fillStyle="#39e6ff"; c.fill();
       c.textAlign="right"; c.font="400 30px Bungee"; c.fillStyle="#ffd23f"; c.fillText(v,940,y+30); });
     c.textAlign="center"; c.font="80px sans-serif"; for(let i=0;i<3;i++){ c.fillStyle=i<L.stars?"#ffd23f":"rgba(255,255,255,.15)"; c.fillText("★",412+i*100,480); }
@@ -1200,9 +1310,10 @@ function drawOverlay(){
   P_.end();
 }
 function drawToast(){
-  const P_=toastP, v=G.vrToast, age=v?(performance.now()-v.t)/1000:9; P_.mesh.visible=age<1.8; if(!P_.mesh.visible) return;
-  const c=P_.begin(); c.globalAlpha=Math.min(1,(1.8-age)*2); vrRR(c,40,10,944,112,40); c.fillStyle="rgba(18,11,38,.9)"; c.fill(); c.lineWidth=4; c.strokeStyle="#ffd23f"; c.stroke();
-  c.font="400 46px Bungee"; c.fillStyle="#ffd23f"; c.textAlign="center"; c.textBaseline="middle"; c.fillText(v.s,512,68); c.globalAlpha=1; P_.end();
+  const P_=toastP, v=G.vrToast, age=v?(performance.now()-v.t)/1000:9; P_.mesh.visible=age<2.2; if(!P_.mesh.visible) return;
+  const c=P_.begin(); c.globalAlpha=Math.min(1,(2.2-age)*2); vrRR(c,20,8,984,96,40); c.fillStyle="rgba(18,11,38,.95)"; c.fill(); c.lineWidth=4; c.strokeStyle="#ffd23f"; c.stroke();
+  let fs=42; c.font=`400 ${fs}px Bungee`; while(c.measureText(v.s).width>930&&fs>20){ fs-=2; c.font=`400 ${fs}px Bungee`; }
+  c.fillStyle="#ffd23f"; c.textAlign="center"; c.textBaseline="middle"; c.fillText(v.s,512,58); c.globalAlpha=1; P_.end();
 }
 
 /* XR input: hands (pinch) or controllers (trigger), near touch and laser pointer */
@@ -1214,7 +1325,7 @@ const XI=[0,1].map(i=>{
   hand.add(handFactory.createHandModel(hand,"spheres"));
   const stick=new THREE.Mesh(new THREE.CylinderGeometry(.012,.016,.12,12).rotateX(Math.PI/2),new THREE.MeshStandardMaterial({color:0x39e6ff,emissive:0x39e6ff,emissiveIntensity:.5})); grip.add(stick); o.stick=stick;
   const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(0,0,0),V3(0,0,-1)]),new THREE.LineBasicMaterial({color:0xff4fa3,toneMapped:false,transparent:true,opacity:.75})); ctrl.add(line); o.line=line;
-  o.dot=new THREE.Mesh(new THREE.SphereGeometry(.007,10,8),new THREE.MeshBasicMaterial({color:0xffd23f,toneMapped:false})); o.dot.visible=false; scene.add(o.dot);
+  o.dot=new THREE.Mesh(new THREE.SphereGeometry(.007,10,8),new THREE.MeshBasicMaterial({color:0xffd23f,toneMapped:false,depthTest:false})); o.dot.renderOrder=50; o.dot.visible=false; scene.add(o.dot);
   o.tip=new THREE.Mesh(new THREE.SphereGeometry(.011,12,10),new THREE.MeshBasicMaterial({color:0x39e6ff,toneMapped:false,transparent:true,opacity:.75})); o.tip.visible=false; scene.add(o.tip);
   o.cutLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(),V3()]),new THREE.LineBasicMaterial({color:0xffffff,toneMapped:false})); o.cutLine.visible=false; scene.add(o.cutLine);
   ctrl.addEventListener("connected",e=>{ o.src=e.data; stick.visible=!e.data.hand; });
@@ -1225,12 +1336,13 @@ const XI=[0,1].map(i=>{
 const _a=V3(), _b=V3(), _q=new THREE.Quaternion(), _sph=new THREE.Sphere();
 function buzz(o,s=.4,ms=40){ try{ o.src?.gamepad?.hapticActuators?.[0]?.pulse(s,ms); }catch{} }
 function act(a){
-  if(a==="order") takeOrder(); else if(a==="dough") grabDough();
-  else if(a.startsWith("tool:")){ G.tool=a.slice(5); SFX.pick(); }
+  if(a==="order") takeOrder(); else if(a==="dough") grabDough(); else if(a==="drink") pourCola();
+  else if(a.startsWith("locked:")){ toast(`Unlocks at rank ${a.slice(7)}`); SFX.sad(); }
+  else if(a.startsWith("tool:")){ G.tool=a.slice(5); SFX.pick(); toast("Holding "+toolName(G.tool).toLowerCase()); }
   else if(a.startsWith("oven:")){ const i=+a.split(":")[1]; G.ovens[i]?takeOut(i):toast(`Oven ${i+1} is empty`); }
 }
 function applyToPizza(o,p,L){
-  if(G.tool==="sauce"||G.tool==="cheese"){
+  if(isSauce(G.tool)||G.tool==="cheese"){
     if(!o.lastPaint||Math.hypot(L.x-o.lastPaint.x,L.z-o.lastPaint.z)>.008){
       if(o.lastPaint){ const n=Math.ceil(Math.hypot(L.x-o.lastPaint.x,L.z-o.lastPaint.z)/.012); for(let k=1;k<=n;k++) paintAt(p,G.tool,o.lastPaint.x+(L.x-o.lastPaint.x)*k/n,o.lastPaint.z+(L.z-o.lastPaint.z)*k/n); }
       else paintAt(p,G.tool,L.x,L.z);
@@ -1267,14 +1379,15 @@ function xrInteract(){
     if(G.station==="build"&&G.buildPizza&&G.tool&&o.down){ const p=G.buildPizza; let L=localOnPizza(p,o.pos,.09,1.05);
       if(!L){ const h=ray.intersectObject(p.top,false)[0]; if(h){ L=p.g.worldToLocal(h.point.clone()); lineLen=h.distance; } }
       if(L) applyToPizza(o,p,L); }
-    if(G.station==="cut"&&G.cutQueue[0]){ const p=G.cutQueue[0]; let L=localOnPizza(p,o.pos,.12,1.8);
+    const aimFountain=G.station==="cut"&&!o.cut&&ray.intersectObjects(fountainParts,false).length>0;
+    if(G.station==="cut"&&G.cutQueue[0]&&!aimFountain){ const p=G.cutQueue[0]; let L=localOnPizza(p,o.pos,.12,1.8);
       if(!L){ const h=ray.intersectObject(cutPlane,false)[0]; if(h){ L=p.g.worldToLocal(h.point.clone()); lineLen=h.distance; } }
       if(L){ if(o.pressed) o.cut={a:L.clone()};
         if(o.cut){ o.cutLine.geometry.setFromPoints([p.g.localToWorld(V3(o.cut.a.x,.02,o.cut.a.z)),p.g.localToWorld(V3(L.x,.02,L.z))]); o.cutLine.visible=true; }
         if(o.released&&o.cut){ addCut(p,o.cut.a,L); o.cut=null; o.cutLine.visible=false; buzz(o,.7,60); } }
       if(o.released){ o.cut=null; o.cutLine.visible=false; } }
     // 4) laser-pick far objects
-    if(o.pressed&&!nearTarget&&G.station!=="cut"){ const h=ray.intersectObjects(stationTargets(),false)[0]; if(h){ act(h.object.userData.action); lineLen=h.distance; buzz(o,.5,30); } }
+    if(o.pressed&&!nearTarget&&(G.station!=="cut"||aimFountain)){ const h=ray.intersectObjects(stationTargets().filter(m=>m!==cutPlane),false)[0]; if(h){ act(h.object.userData.action); lineLen=h.distance; buzz(o,.5,30); } }
     if(o.released){ o.lastPaint=null; o.lastDrop=null; }
     o.line.scale.z=lineLen; o.line.visible=true;
   }
@@ -1299,7 +1412,7 @@ function startVRMode(){
   vrOn=true; $("intro").hidden=true; keyL.castShadow=false;
   if(!G.day) startDay();
   G.paused=true; vrOverlay="howto"; placeRig();
-  for(const p of [mainP,ticketP]) p.mesh.visible=true;
+  placePanels(); for(const p of [mainP,ticketP]) p.mesh.visible=true;
 }
 function vrUpdatePanels(){ drawMain(); drawTickets(); drawOverlay(); drawToast(); }
 
@@ -1317,7 +1430,7 @@ $("startMouse").onclick=()=>{ initAudio(); useMouse(); $("intro").hidden=true; s
 buildTrays(); tameReflections(); resize(); renderer.setAnimationLoop(frame);
 if(navigator.xr&&navigator.xr.isSessionSupported) navigator.xr.isSessionSupported("immersive-vr").then(ok=>{ if(ok){ $("vrBtn").hidden=false; $("vrBtn2").hidden=false; $("vrNote").hidden=true; } }).catch(()=>{});
 for(const id of ["vrBtn","vrBtn2"]) $(id).onclick=()=>enterVR().catch(e=>{ console.error(e); toast("VR didn’t start"); });
-window.__pz={vrOverlayOff(){ vrOverlay=null; },vrUpdatePanels,mainP,vrState:()=>({vrOn,vrOverlay}),vrPreview(){ vrPreview=true; startVRMode(); },XI,scene,bloom,renderer,snap(){ camPos.copy(VIEWS[G.station].pos); camLook.copy(VIEWS[G.station].look); },G,P,SAVE,startDay,setStation,takeOrder,grabDough,sendToOven,takeOut,serve,paintAt,placeTopping,addCut,T:()=>T};
+window.__pz={vrOverlayOff(){ vrOverlay=null; },vrUpdatePanels,mainP,vrState:()=>({vrOn,vrOverlay}),vrPreview(){ vrPreview=true; startVRMode(); },XI,scene,bloom,renderer,snap(){ camPos.copy(VIEWS[G.station].pos); camLook.copy(VIEWS[G.station].look); },G,P,SAVE,startDay,setStation,takeOrder,grabDough,sendToOven,takeOut,serve,paintAt,placeTopping,addCut,pourCola,act,placePanels,THREE,camera,overP,ticketP,toastP,trays,T:()=>T};
 </script>
 </body>
 </html>
