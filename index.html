@@ -1,0 +1,1323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neon Crust Diner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yellowtail&family=Bungee&family=Rubik:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: first-person 3D diner fills the screen. Ticket rail across the top, station tabs along the bottom,
+   context panels at the sides. Your tracked hand is drawn in neon on top of everything. */
+:root{
+  --night:#120b26; --night-2:#1d1240; --pink:#ff4fa3; --cyan:#39e6ff; --yellow:#ffd23f; --mint:#7cf5c8; --cream:#fff3e0; --muted:#b9add6;
+  --panel:rgba(18,11,38,.78); --line:rgba(57,230,255,.35);
+  --script:"Yellowtail","Brush Script MT",cursive; --sign:"Bungee","Arial Black",Impact,sans-serif; --ui:"Rubik","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--night);color:var(--cream);font-family:var(--ui);overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none}
+#gl,#hand{position:fixed;inset:0;width:100%;height:100%;display:block}
+#hand{pointer-events:none;z-index:20}
+.panel{position:fixed;z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 0 24px rgba(57,230,255,.12)}
+button{font:700 13px var(--ui);color:var(--cream);background:rgba(255,255,255,.06);border:2px solid var(--cyan);border-radius:12px;padding:10px 16px;cursor:pointer;
+  text-shadow:0 0 8px rgba(57,230,255,.5);box-shadow:0 0 12px rgba(57,230,255,.25), inset 0 0 10px rgba(57,230,255,.1);transition:transform .12s, background .12s}
+button:hover,button.hover{background:rgba(57,230,255,.16);transform:translateY(-1px)}
+button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+button:disabled{opacity:.35;cursor:default;transform:none}
+button.pink{border-color:var(--pink);text-shadow:0 0 8px rgba(255,79,163,.6);box-shadow:0 0 12px rgba(255,79,163,.3),inset 0 0 10px rgba(255,79,163,.12)}
+button.pink:hover,button.pink.hover{background:rgba(255,79,163,.18)}
+button.big{font:400 18px var(--sign);padding:14px 24px;letter-spacing:.02em}
+.label{font:400 11px var(--sign);letter-spacing:.06em;color:var(--cyan);text-shadow:0 0 8px rgba(57,230,255,.6)}
+
+/* top bar */
+#brand{position:fixed;top:10px;left:16px;z-index:5;pointer-events:none}
+#brand h1{margin:0;font:400 40px/1 var(--script);color:var(--pink);text-shadow:0 0 6px #ff4fa3,0 0 22px rgba(255,79,163,.7)}
+#brand .sub{font:400 11px var(--sign);color:var(--cyan);letter-spacing:.08em;text-shadow:0 0 8px rgba(57,230,255,.7)}
+#stats{position:fixed;top:12px;right:14px;z-index:5;display:flex;gap:8px;align-items:center}
+.stat{padding:7px 12px;display:grid;justify-items:end;min-width:84px}
+.stat b{font:400 20px/1 var(--sign);color:var(--yellow);text-shadow:0 0 10px rgba(255,210,63,.6);font-variant-numeric:tabular-nums}
+.stat span{font:600 10px var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+#rankBar{height:4px;width:100%;background:rgba(255,255,255,.12);border-radius:4px;overflow:hidden;margin-top:4px}
+#rankBar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--pink));width:0}
+
+/* ticket rail */
+#rail{position:fixed;z-index:5;top:72px;left:50%;transform:translateX(-50%);display:flex;gap:10px;padding:10px 12px 12px;max-width:calc(100vw - 32px);overflow-x:auto;
+  background:linear-gradient(#2a2f3a,#1b1f27);border:2px solid #9aa3b5;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#rail:empty{display:none}
+.ticket{all:unset;box-sizing:border-box;cursor:pointer;width:92px;flex:none;background:#fffaf0;color:#2a2340;border-radius:4px 4px 2px 2px;padding:6px 7px 7px;display:grid;gap:4px;position:relative;
+  box-shadow:0 3px 0 rgba(0,0,0,.25);transform:rotate(-1deg);transition:transform .15s, box-shadow .15s}
+.ticket:nth-child(2n){transform:rotate(1.2deg)}
+.ticket.sel{box-shadow:0 0 0 3px var(--yellow),0 0 18px var(--yellow);transform:translateY(4px)}
+.ticket.hover{transform:translateY(2px) rotate(0)}
+.ticket::before{content:"";position:absolute;left:50%;top:-9px;width:22px;height:8px;margin-left:-11px;background:#c7ccd6;border-radius:2px}
+.ticket .tn{font:700 11px var(--ui);display:flex;justify-content:space-between}
+.ticket canvas{width:78px;height:78px;justify-self:center}
+.ticket .tf{display:flex;justify-content:space-between;font:700 10px var(--ui)}
+.ticket .pat{height:4px;background:#e6dccb;border-radius:3px;overflow:hidden}
+.ticket .pat i{display:block;height:100%;background:#3bbf7a}
+.ticket .stage{position:absolute;right:-6px;top:-8px;font:400 9px var(--sign);background:var(--pink);color:#fff;padding:3px 5px;border-radius:6px}
+
+/* station tabs */
+#tabs{position:fixed;z-index:6;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:10px}
+#tabs button{min-width:118px;font:400 15px var(--sign);padding:12px 16px;position:relative}
+#tabs button[aria-current="true"]{background:var(--cyan);color:var(--night);text-shadow:none}
+#tabs .badge{position:absolute;top:-10px;right:-8px;min-width:22px;height:22px;border-radius:11px;background:var(--pink);color:#fff;font:700 12px/22px var(--ui);text-align:center;padding:0 6px;box-shadow:0 0 10px var(--pink)}
+#tabs .badge.hot{background:var(--yellow);color:var(--night);box-shadow:0 0 12px var(--yellow);animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.15)}}
+
+/* station context */
+#ctx{position:fixed;z-index:5;right:14px;bottom:86px;width:260px;padding:14px;display:grid;gap:10px}
+#ctx h3{margin:0;font:400 16px var(--sign);color:var(--pink);text-shadow:0 0 10px rgba(255,79,163,.6)}
+#ctx p{margin:0;font:500 13px/1.45 var(--ui);color:var(--muted)}
+#ctx .row{display:flex;gap:8px;flex-wrap:wrap}
+.meterRow{display:grid;gap:4px}
+.meterRow span{font:600 11px var(--ui);color:var(--muted);display:flex;justify-content:space-between}
+.gauge{position:relative;height:16px;border-radius:8px;background:linear-gradient(90deg,#f7e6c4 0%,#e9b366 35%,#c97a32 55%,#8d4a1f 75%,#2b160b 100%);border:1px solid rgba(255,255,255,.3)}
+.gauge i{position:absolute;top:-4px;bottom:-4px;width:3px;background:#fff;box-shadow:0 0 6px #fff;border-radius:2px}
+.gauge b{position:absolute;top:-3px;bottom:-3px;border:2px solid var(--mint);border-radius:6px;box-shadow:0 0 8px var(--mint)}
+#bigTicket{position:fixed;z-index:5;left:14px;top:84px;width:180px;padding:12px;display:grid;gap:8px;justify-items:center}
+#bigTicket canvas{width:130px;height:130px}
+#bigTicket .bt{font:400 14px var(--sign);color:var(--yellow);text-align:center}
+#bigTicket .bl{font:600 12px/1.5 var(--ui);color:var(--cream);width:100%}
+#bigTicket .bl div{display:flex;justify-content:space-between;gap:8px}
+#tool{position:fixed;z-index:6;left:50%;top:auto;bottom:84px;transform:translateX(-50%);font:400 13px var(--sign);color:var(--yellow);text-shadow:0 0 10px rgba(255,210,63,.7);pointer-events:none}
+#hint{position:fixed;z-index:6;left:50%;bottom:118px;transform:translateX(-50%);max-width:min(620px,70vw);text-align:center;font:600 15px var(--ui);color:var(--cream);
+  text-shadow:0 0 10px #000,0 2px 6px #000;pointer-events:none}
+#toast{position:fixed;z-index:7;left:50%;top:42%;transform:translate(-50%,-50%);font:400 clamp(26px,4vw,46px) var(--sign);color:var(--yellow);text-shadow:0 0 18px rgba(255,210,63,.8),0 4px 10px #000;pointer-events:none;opacity:0;white-space:nowrap}
+#toast.go{animation:toast 1.4s ease-out}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,-40%) scale(.9)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%)}}
+
+/* camera */
+#cam{position:fixed;z-index:5;left:14px;bottom:14px;width:170px;padding:6px;display:grid;gap:6px}
+#cam .frame{position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;background:#000}
+#cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:.65}
+#cam .chip{font:700 10px var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+#cam .chip i{width:8px;height:8px;border-radius:50%;background:#666}
+#cam .chip.on{color:var(--mint)} #cam .chip.on i{background:var(--mint);box-shadow:0 0 8px var(--mint)}
+
+/* overlays */
+.overlay{position:fixed;inset:0;z-index:15;display:grid;place-items:center;padding:16px;background:rgba(10,6,24,.7);backdrop-filter:blur(4px);overflow:auto}
+.card{width:min(620px,100%);background:linear-gradient(160deg,#22154a,#140c2c);border:2px solid var(--pink);border-radius:20px;padding:28px 30px;display:grid;gap:16px;
+  box-shadow:0 0 30px rgba(255,79,163,.35),inset 0 0 30px rgba(255,79,163,.08)}
+.card h2{margin:0;font:400 54px/1 var(--script);color:var(--pink);text-shadow:0 0 8px #ff4fa3,0 0 26px rgba(255,79,163,.6)}
+.card h3{margin:0;font:400 18px var(--sign);color:var(--cyan);text-shadow:0 0 10px rgba(57,230,255,.6)}
+.card p{margin:0;color:var(--muted);line-height:1.55;font-size:14.5px}
+.gestures{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.gestures div{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:6px;justify-items:center;text-align:center;font:500 12px/1.35 var(--ui);color:var(--muted)}
+.gestures b{font:400 12px var(--sign);color:var(--yellow)}
+.gestures svg{width:56px;height:46px}
+.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+#err{color:var(--pink);font-size:13px}
+.linkish{background:none;border:0;box-shadow:none;color:var(--muted);text-decoration:underline;padding:6px;font-weight:500;text-shadow:none}
+.scoreGrid{display:grid;gap:10px}
+.sRow{display:grid;grid-template-columns:96px 1fr 48px;gap:10px;align-items:center;font:600 13px var(--ui)}
+.sRow .bar{height:14px;border-radius:7px;background:rgba(255,255,255,.1);overflow:hidden}
+.sRow .bar i{display:block;height:100%;width:0;border-radius:7px;background:linear-gradient(90deg,var(--cyan),var(--mint));transition:width .7s cubic-bezier(.2,.8,.2,1)}
+.sRow b{font:400 15px var(--sign);text-align:right;color:var(--yellow)}
+.bigStars{font-size:40px;letter-spacing:6px;color:rgba(255,255,255,.15);text-align:center}
+.bigStars b{color:var(--yellow);font-weight:400;text-shadow:0 0 16px rgba(255,210,63,.8)}
+.quote{font:400 30px/1.1 var(--script);color:var(--cream);text-align:center}
+.sumGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.sumGrid div{border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.sumGrid b{display:block;font:400 26px var(--sign);color:var(--yellow)}
+.sumGrid span{font:600 11px var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.unlock{border:1px dashed var(--mint);border-radius:12px;padding:10px 12px;color:var(--mint);font:600 13px var(--ui)}
+@media (max-width:820px){ #bigTicket{display:none} #ctx{width:210px} #tabs button{min-width:84px;font-size:12px;padding:10px} .gestures{grid-template-columns:repeat(2,1fr)} }
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="hand"></canvas>
+
+<div id="brand"><h1>Neon Crust</h1><div class="sub" id="daySub">DAY 1 · RANK 1 FRY COOK</div></div>
+<div id="stats">
+  <div class="panel stat" style="position:static"><b id="sServed">0/0</b><span>Served</span></div>
+  <div class="panel stat" style="position:static"><b id="sTips">$0.00</b><span>Tips today</span></div>
+  <div class="panel stat" style="position:static"><b id="sRank">1</b><span>Rank</span><div id="rankBar"><i></i></div></div>
+  <button id="vrBtn2" type="button" style="padding:8px 12px" hidden>Enter VR</button>
+  <button id="muteBtn" type="button" class="pink" style="padding:8px 12px">Jukebox on</button>
+</div>
+
+<div id="rail"></div>
+
+<div id="bigTicket" class="panel" hidden>
+  <div class="bt" id="btName">Order</div>
+  <canvas id="btCanvas" width="340" height="340"></canvas>
+  <div class="bl" id="btList"></div>
+</div>
+
+<div id="ctx" class="panel"></div>
+<div id="tool"></div>
+<div id="hint"></div>
+<div id="toast"></div>
+
+<nav id="tabs" aria-label="Stations">
+  <button type="button" data-st="order">Order<span class="badge" hidden></span></button>
+  <button type="button" data-st="build">Build<span class="badge" hidden></span></button>
+  <button type="button" data-st="bake">Bake<span class="badge" hidden></span></button>
+  <button type="button" data-st="cut">Cut<span class="badge" hidden></span></button>
+</nav>
+
+<div id="cam" class="panel" hidden>
+  <div class="frame"><video id="video" playsinline muted></video></div>
+  <div class="chip" id="chipHand"><i></i><span>Show your hand</span></div>
+</div>
+
+<div id="intro" class="overlay">
+  <div class="card">
+    <h2>Neon Crust Diner</h2>
+    <p>You just got the keys to the coolest pizza joint on the strip. Take orders at the window, build every pie by hand, bake it just right, slice it clean and keep the regulars happy. Your webcam is your hands.</p>
+    <h3>Four moves run the kitchen</h3>
+    <div class="gestures">
+      <div><svg viewBox="0 0 56 46"><circle cx="28" cy="23" r="20" fill="none" stroke="#39e6ff" stroke-width="2"/><circle cx="28" cy="23" r="4" fill="#39e6ff"/></svg><b>Point</b>Your index finger moves the neon cursor.</div>
+      <div><svg viewBox="0 0 56 46"><path d="M14 30 Q22 8 30 18" stroke="#ff4fa3" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M42 32 Q34 22 30 18" stroke="#ff4fa3" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="30" cy="18" r="5" fill="#ffd23f"/></svg><b>Pinch</b>Thumb to finger presses buttons and grabs toppings.</div>
+      <div><svg viewBox="0 0 56 46"><path d="M8 34 C18 10 38 40 48 14" stroke="#ff4fa3" stroke-width="5" fill="none" stroke-linecap="round" opacity=".8"/><circle cx="48" cy="14" r="5" fill="#ffd23f"/></svg><b>Pinch &amp; move</b>Spread sauce and cheese like painting.</div>
+      <div><svg viewBox="0 0 56 46"><circle cx="28" cy="23" r="18" fill="#e9b366"/><path d="M6 40 L50 6" stroke="#fff" stroke-width="3" stroke-dasharray="5 4"/></svg><b>Pinch-drag</b>Draw a line across the pie to slice it.</div>
+    </div>
+    <p>Hovering on a button for a moment also presses it. Stand about an arm’s length from the camera with your hand well lit.</p>
+    <div class="actions">
+      <button class="big pink" id="startCam" type="button">Open the diner</button>
+      <button class="big" id="vrBtn" type="button" hidden>Enter VR</button>
+      <button class="linkish" id="startMouse" type="button">No camera? Practise with a mouse</button>
+    </div>
+    <p id="vrNote" style="font-size:12.5px">Have a VR headset? Open this file in the headset’s browser (for example Meta Quest Browser) and an <b style="color:var(--cream)">Enter VR</b> button appears.</p>
+    <div id="err" hidden></div>
+  </div>
+</div>
+
+<div id="scoreCard" class="overlay" hidden>
+  <div class="card" style="width:min(520px,100%)">
+    <h3 id="scName">Customer</h3>
+    <div class="scoreGrid" id="scRows"></div>
+    <div class="bigStars" id="scStars"></div>
+    <div class="quote" id="scQuote"></div>
+    <div class="actions" style="justify-content:space-between"><span class="label" id="scTip">TIP $0.00</span><button class="big" id="scNext" type="button">Next</button></div>
+  </div>
+</div>
+
+<div id="daySum" class="overlay" hidden>
+  <div class="card">
+    <h2 id="dsTitle">Day 1 complete</h2>
+    <div class="sumGrid">
+      <div><b id="dsServed">0</b><span>Served</span></div>
+      <div><b id="dsAvg">0%</b><span>Avg score</span></div>
+      <div><b id="dsTips">$0</b><span>Tips</span></div>
+    </div>
+    <div class="meterRow"><span><span id="dsRank">Rank 1</span><span id="dsXp">0 / 250</span></span><div id="rankBar2" style="height:10px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden"><i style="display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--pink))"></i></div></div>
+    <div id="dsUnlock"></div>
+    <div class="actions"><button class="big pink" id="dsNext" type="button">Open day 2</button></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { XRHandModelFactory } from "three/addons/webxr/XRHandModelFactory.js";
+
+const $=id=>document.getElementById(id);
+const store={ get(k,d){ try{ const v=localStorage.getItem("neoncrust:"+k); return v?JSON.parse(v):d; }catch{ return d; } },
+              set(k,v){ try{ localStorage.setItem("neoncrust:"+k,JSON.stringify(v)); }catch{} } };
+const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.floor(Math.random()*a.length)], clamp01=v=>Math.max(0,Math.min(1,v));
+
+/* =========================================================
+   Game data
+   ========================================================= */
+const TOPPINGS=[
+  {id:"pep",  name:"Pepperoni",     rank:1, col:"#b8332a", col2:"#7e1f18", shape:"disc"},
+  {id:"mush", name:"Mushrooms",     rank:1, col:"#d9c3a0", col2:"#a88b62", shape:"mush"},
+  {id:"pepr", name:"Green peppers", rank:1, col:"#3fa34d", col2:"#2b7a36", shape:"ring"},
+  {id:"olive",name:"Black olives",  rank:1, col:"#26222a", col2:"#4a4450", shape:"ring"},
+  {id:"onion",name:"Onions",        rank:2, col:"#e8d6f0", col2:"#a36db8", shape:"ring"},
+  {id:"saus", name:"Sausage",       rank:3, col:"#8a4b2b", col2:"#5e3018", shape:"lump"},
+  {id:"pine", name:"Pineapple",     rank:4, col:"#f2cf3a", col2:"#c9a21c", shape:"wedge"},
+  {id:"jal",  name:"Jalapeños",     rank:5, col:"#5bbf3a", col2:"#d8f0b0", shape:"disc"},
+  {id:"bacon",name:"Bacon",         rank:6, col:"#c4554a", col2:"#f0c4b0", shape:"strip"},
+];
+const TOP=Object.fromEntries(TOPPINGS.map(t=>[t.id,t]));
+const RANKS=[0,250,600,1100,1700,2400,3200,4200,5400];
+const RANK_NAMES=["Fry Cook","Dough Roller","Sauce Boss","Topping Ace","Oven Wrangler","Slice Master","Night Manager","Diner Legend","Neon Royalty"];
+const BAKE={light:{label:"Light",t:.34},medium:{label:"Medium",t:.55},well:{label:"Well done",t:.74}};
+const REGION_LABEL={all:"Whole pie",L:"Left half",R:"Right half",q1:"Top left",q2:"Top right",q3:"Bottom right",q4:"Bottom left"};
+const REGION_COUNT={all:8,L:4,R:4,q1:2,q2:2,q3:2,q4:2};
+const CUSTOMERS=[
+  {name:"Roxy",  hair:"beehive",   hairCol:"#ff7ab8", shirt:"#39c6d9", skin:"#f1c7a5", fav:["pep","pine"],   glasses:false},
+  {name:"Duke",  hair:"pompadour", hairCol:"#1b1b22", shirt:"#222129", skin:"#d9a27c", fav:["saus","pepr"],  glasses:true },
+  {name:"Dottie",hair:"ponytail",  hairCol:"#e7b04b", shirt:"#ff4fa3", skin:"#f6d2b8", fav:["mush","olive"], glasses:false},
+  {name:"Chet",  hair:"cap",       hairCol:"#d23a3a", shirt:"#f2f2f2", skin:"#c88b62", fav:["pep","bacon"],  glasses:false},
+  {name:"Lulu",  hair:"beehive",   hairCol:"#4fd1c5", shirt:"#ffd23f", skin:"#8d5a3c", fav:["onion","pepr"], glasses:true },
+  {name:"Buzz",  hair:"buzz",      hairCol:"#3a2a1e", shirt:"#7a5cff", skin:"#e8b896", fav:["jal","pep"],    glasses:true },
+  {name:"Pearl", hair:"bun",       hairCol:"#d6d4dc", shirt:"#9ad1a0", skin:"#f0cdb6", fav:["mush","onion"], glasses:true },
+  {name:"Vinnie",hair:"pompadour", hairCol:"#5a3420", shirt:"#2f6fdb", skin:"#d7a07a", fav:["saus","olive"], glasses:false},
+  {name:"Ziggy", hair:"mohawk",    hairCol:"#39e6ff", shirt:"#141414", skin:"#b67c55", fav:["jal","bacon"],  glasses:false},
+  {name:"Marla", hair:"ponytail",  hairCol:"#2a1a14", shirt:"#ff8a3d", skin:"#7a4a30", fav:["pine","pepr"],  glasses:false},
+];
+const QUOTES=[[92,"Now that’s a pie!"],[80,"Swell job, chef!"],[65,"Not bad, hon."],[45,"Ehh… it’s food."],[0,"Was that even a pizza?"]];
+
+const SAVE=Object.assign({day:1,money:0,xp:0},store.get("save",{}));
+const rankOf=xp=>{ let r=1; RANKS.forEach((t,i)=>{ if(xp>=t) r=i+1; }); return r; };
+const unlocked=()=>TOPPINGS.filter(t=>t.rank<=rankOf(SAVE.xp));
+const money=v=>"$"+v.toFixed(2);
+
+
+/* =========================================================
+   Sound: little diner sound effects and a jukebox loop
+   ========================================================= */
+let AC=null, sfxBus=null, musicBus=null, musicOn=store.get("music",true), musicTimer=null;
+function initAudio(){
+  if(AC){ AC.resume(); return; }
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  const master=AC.createGain(); master.gain.value=.85; master.connect(AC.destination);
+  sfxBus=AC.createGain(); sfxBus.gain.value=1; sfxBus.connect(master);
+  musicBus=AC.createGain(); musicBus.gain.value=musicOn?.16:0; musicBus.connect(master);
+  startMusic();
+}
+function tone(freq,dur,type="square",vol=.12,slide=0,when=0,bus=sfxBus){
+  if(!AC) return; const t=AC.currentTime+when, o=AC.createOscillator(), g=AC.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t); if(slide) o.frequency.linearRampToValueAtTime(Math.max(40,freq+slide),t+dur);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.006); g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t+dur+.02);
+}
+let noiseBuf=null;
+function noise(dur,freq,q=1,vol=.12,when=0,bus=sfxBus){
+  if(!AC) return; if(!noiseBuf){ noiseBuf=AC.createBuffer(1,AC.sampleRate,AC.sampleRate); const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; }
+  const t=AC.currentTime+when, s=AC.createBufferSource(), f=AC.createBiquadFilter(), g=AC.createGain();
+  s.buffer=noiseBuf; f.type="bandpass"; f.frequency.value=freq; f.Q.value=q;
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+  s.connect(f); f.connect(g); g.connect(bus); s.start(t,Math.random()*.5); s.stop(t+dur+.02);
+}
+const SFX={
+  click:()=>tone(880,.06,"square",.06),
+  pick:()=>{ tone(660,.05,"triangle",.1); tone(990,.07,"triangle",.08,0,.04); },
+  plop:()=>tone(rnd(320,460),.09,"sine",.22,-160),
+  squish:()=>noise(.07,rnd(500,900),1.2,.05),
+  bell:()=>{ tone(2350,.7,"triangle",.18); tone(3520,.5,"sine",.06); },
+  ding:()=>{ tone(1318,.7,"sine",.22); tone(1976,.6,"sine",.1,0,.02); },
+  slice:()=>{ noise(.16,3200,.7,.18); tone(1400,.12,"sawtooth",.03,-900); },
+  cash:()=>{ tone(1568,.07,"square",.09); tone(2093,.3,"square",.09,0,.08); noise(.12,5000,.5,.05,.02); },
+  door:()=>{ tone(1046,.2,"sine",.1); tone(1318,.3,"sine",.1,0,.12); },
+  oven:()=>{ noise(.35,300,.8,.1); tone(120,.3,"sawtooth",.04,40); },
+  sad:()=>tone(330,.45,"sawtooth",.07,-140),
+  warn:()=>{ tone(520,.12,"square",.08); tone(520,.12,"square",.08,0,.18); },
+  star:()=>{ [0,4,7,12].forEach((s,i)=>tone(784*Math.pow(2,s/12),.25,"triangle",.1,0,i*.07)); },
+};
+function startMusic(){
+  // an original doo-wop style loop: I–vi–IV–V with walking bass, offbeat organ stabs and brushed hats
+  const bpm=128, spb=60/bpm, chords=[[48,52,55],[45,48,52],[41,45,48],[43,47,50]];
+  const bassWalk=[[36,40,43,45],[33,36,40,43],[29,33,36,38],[31,35,38,35]];
+  const mf=m=>440*Math.pow(2,(m-69)/12);
+  let next=AC.currentTime+.2, beat=0;
+  musicTimer=setInterval(()=>{
+    while(next<AC.currentTime+.4){
+      const bar=Math.floor(beat/4)%4, b=beat%4, w=next-AC.currentTime;
+      tone(mf(bassWalk[bar][b]),spb*.9,"triangle",.5,0,w,musicBus);
+      if(b===1||b===3) chords[bar].forEach(m=>tone(mf(m+12),spb*.45,"square",.06,0,w,musicBus));
+      noise(.05,8000,.6,.05,w,musicBus); noise(.04,8000,.6,.03,w+spb/2,musicBus);
+      if(b===0||b===2) noise(.12,180,.7,.25,w,musicBus);
+      next+=spb; beat++;
+    }
+  },100);
+}
+function setMusic(on){ musicOn=on; store.set("music",on); if(musicBus) musicBus.gain.setTargetAtTime(on?.16:0,AC.currentTime,.1); $("muteBtn").textContent=on?"Jukebox on":"Jukebox off"; }
+
+/* =========================================================
+   Input: your hand (or a mouse) becomes a neon cursor
+   ========================================================= */
+const P={x:innerWidth/2,y:innerHeight/2,down:false,wasDown:false,pressed:false,released:false,seen:false,mode:"none",lm:null,lastSeen:0,pinch:1};
+const REACH={x0:.14,x1:.86,y0:.1,y1:.78};
+const mapX=x=>((1-x)-REACH.x0)/(REACH.x1-REACH.x0)*innerWidth;
+const mapY=y=>(y-REACH.y0)/(REACH.y1-REACH.y0)*innerHeight;
+const video=$("video");
+let handLM=null, lastVT=-1, stream=null;
+async function startCamera(){
+  hintText("Loading hand tracking…");
+  const {FilesetResolver,HandLandmarker}=await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
+  const files=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  const url="https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+  for(const d of ["GPU","CPU"]){ try{ handLM=await HandLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:url,delegate:d},runningMode:"VIDEO",numHands:1,minHandDetectionConfidence:.55,minTrackingConfidence:.5}); break; }catch(e){ if(d==="CPU") throw e; } }
+  stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:960},height:{ideal:540},facingMode:"user"},audio:false});
+  video.srcObject=stream; await video.play();
+  P.mode="hand"; $("cam").hidden=false; trackLoop();
+}
+function trackLoop(){
+  if(video.readyState>=2&&video.currentTime!==lastVT){
+    lastVT=video.currentTime;
+    const r=handLM.detectForVideo(video,performance.now()), lm=r.landmarks&&r.landmarks[0];
+    if(lm){
+      P.lm=lm; P.lastSeen=performance.now(); P.seen=true;
+      const asp=(video.videoWidth||16)/(video.videoHeight||9);
+      const d=(a,b)=>Math.hypot((lm[a].x-lm[b].x)*asp,lm[a].y-lm[b].y);
+      P.pinch=d(4,8)/Math.max(.01,d(0,9));
+      if(!P.down&&P.pinch<.33) P.down=true; else if(P.down&&P.pinch>.48) P.down=false;
+      const tx=mapX((lm[4].x+lm[8].x)/2), ty=mapY((lm[4].y+lm[8].y)/2);
+      const k=P.down?.38:.5; P.x+=(tx-P.x)*k; P.y+=(ty-P.y)*k;
+    }
+  }
+  if(P.seen&&performance.now()-P.lastSeen>350){ P.seen=false; P.down=false; P.lm=null; }
+  requestAnimationFrame(trackLoop);
+}
+function useMouse(){
+  P.mode="mouse"; P.seen=true;
+  addEventListener("pointermove",e=>{ P.x=e.clientX; P.y=e.clientY; });
+  $("gl").addEventListener("pointerdown",e=>{ P.x=e.clientX; P.y=e.clientY; P.down=true; });
+  addEventListener("pointerup",()=>{ P.down=false; });
+}
+
+/* neon hand + cursor overlay */
+const hc=$("hand"), hctx=hc.getContext("2d");
+const HAND_LINKS=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+function drawHand(dwell){
+  const c=hctx, W=innerWidth, H=innerHeight; c.clearRect(0,0,W,H);
+  if(P.mode==="hand"&&P.lm){
+    const col=P.down?"255,79,163":"57,230,255";
+    c.lineCap="round"; c.shadowColor=`rgb(${col})`; c.shadowBlur=14;
+    c.strokeStyle=`rgba(${col},.55)`; c.lineWidth=4;
+    for(const [a,b] of HAND_LINKS){ c.beginPath(); c.moveTo(mapX(P.lm[a].x),mapY(P.lm[a].y)); c.lineTo(mapX(P.lm[b].x),mapY(P.lm[b].y)); c.stroke(); }
+    c.fillStyle=`rgba(${col},.8)`; for(const p of P.lm){ c.beginPath(); c.arc(mapX(p.x),mapY(p.y),3,0,Math.PI*2); c.fill(); }
+    c.shadowBlur=0;
+  }
+  if(P.mode==="none"||!P.seen) return;
+  // cursor ring: fills when pinching, arc shows dwell progress, label shows what you're holding
+  const r=P.down?11:16; c.lineWidth=3; c.shadowColor=P.down?"#ff4fa3":"#39e6ff"; c.shadowBlur=16;
+  c.strokeStyle=P.down?"#ff4fa3":"#39e6ff"; c.beginPath(); c.arc(P.x,P.y,r,0,Math.PI*2); c.stroke();
+  if(P.down){ c.fillStyle="rgba(255,79,163,.35)"; c.fill(); }
+  if(dwell>0){ c.strokeStyle="#ffd23f"; c.shadowColor="#ffd23f"; c.lineWidth=4; c.beginPath(); c.arc(P.x,P.y,r+7,-Math.PI/2,-Math.PI/2+dwell*Math.PI*2); c.stroke(); }
+  c.shadowBlur=0;
+  if(G.tool){ c.font="400 12px Bungee, sans-serif"; c.fillStyle="#ffd23f"; c.textAlign="left"; c.fillText(toolName(G.tool),P.x+22,P.y+5); }
+}
+
+
+/* =========================================================
+   The diner (3D)
+   ========================================================= */
+const renderer=new THREE.WebGLRenderer({canvas:$("gl"),antialias:true,powerPreference:"high-performance"});
+renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=.9;
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0d0820); scene.fog=new THREE.Fog(0x0d0820,9,18);
+const pmrem=new THREE.PMREMGenerator(renderer); scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),.04).texture;
+const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.03,40);
+const rig=new THREE.Group(); scene.add(rig); rig.add(camera);   // the player: moves between stations in VR
+renderer.xr.enabled=true;
+
+function ctex(w,h,draw,rep=[1,1]){ const c=document.createElement("canvas"); c.width=w; c.height=h; draw(c.getContext("2d"),w,h);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(...rep); t.anisotropy=8; return t; }
+const checker=ctex(256,256,(c,w)=>{ const s=w/2; for(let i=0;i<2;i++)for(let j=0;j<2;j++){ c.fillStyle=(i+j)%2?"#141018":"#f2ece2"; c.fillRect(i*s,j*s,s,s); } },[18,14]);
+const tiles=ctex(256,256,(c,w,h)=>{ c.fillStyle="#cfeee6"; c.fillRect(0,0,w,h); c.strokeStyle="#9fcfc2"; c.lineWidth=4;
+  for(let y=0;y<=h;y+=32){ c.beginPath(); c.moveTo(0,y); c.lineTo(w,y); c.stroke(); for(let x=(y/32)%2?0:32;x<=w;x+=64){ c.beginPath(); c.moveTo(x,y); c.lineTo(x,y+32); c.stroke(); } } },[6,3]);
+const kitchenFloor=ctex(128,128,(c,w)=>{ c.fillStyle="#3a3550"; c.fillRect(0,0,w,w); c.strokeStyle="#2a2640"; c.lineWidth=3; c.strokeRect(0,0,w,w); },[8,8]);
+const skyline=ctex(512,256,(c,w,h)=>{ const g=c.createLinearGradient(0,0,0,h); g.addColorStop(0,"#2a145c"); g.addColorStop(.7,"#d13f8a"); g.addColorStop(1,"#ff9a5a"); c.fillStyle=g; c.fillRect(0,0,w,h);
+  c.fillStyle="#fff"; for(let i=0;i<60;i++){ c.globalAlpha=Math.random()*.8; c.fillRect(Math.random()*w,Math.random()*h*.5,1.5,1.5); } c.globalAlpha=1;
+  let x=0; while(x<w){ const bw=30+Math.random()*50, bh=60+Math.random()*130; c.fillStyle="#140a2a"; c.fillRect(x,h-bh,bw,bh);
+    c.fillStyle="#ffd23f"; for(let yy=h-bh+8;yy<h-6;yy+=12) for(let xx=x+5;xx<x+bw-6;xx+=10) if(Math.random()<.35) c.fillRect(xx,yy,4,6); x+=bw+4; } });
+function neonText(text,font,color,w=1024,h=256){
+  return ctex(w,h,(c)=>{ c.font=font; c.textAlign="center"; c.textBaseline="middle"; c.shadowColor=color;
+    for(const b of [40,20,8]){ c.shadowBlur=b; c.fillStyle=color; c.fillText(text,w/2,h/2); }
+    c.shadowBlur=0; c.fillStyle="#fff"; c.globalAlpha=.85; c.fillText(text,w/2,h/2); });
+}
+const MAT={
+  chrome:new THREE.MeshStandardMaterial({color:0xe8ebf2,metalness:1,roughness:.18}),
+  steel:new THREE.MeshStandardMaterial({color:0xb9bfca,metalness:.85,roughness:.35}),
+  mint:new THREE.MeshStandardMaterial({color:0x6fd6c1,roughness:.45}),
+  pink:new THREE.MeshStandardMaterial({color:0xff7eb6,roughness:.5}),
+  vinyl:new THREE.MeshPhysicalMaterial({color:0xd6283f,roughness:.35,clearcoat:.8}),
+  formica:new THREE.MeshStandardMaterial({color:0xf6f0e6,roughness:.3}),
+  marble:new THREE.MeshPhysicalMaterial({color:0xf3f1ee,roughness:.25,clearcoat:.6}),
+  wood:new THREE.MeshStandardMaterial({color:0x9a6235,roughness:.6}),
+  dark:new THREE.MeshStandardMaterial({color:0x1a1424,roughness:.6}),
+  wall:new THREE.MeshStandardMaterial({color:0x2a1d55,roughness:.9}),
+  ceramic:new THREE.MeshStandardMaterial({color:0xfafafa,roughness:.25}),
+};
+const neonMat=hex=>{ const m=new THREE.MeshBasicMaterial({color:hex,toneMapped:false}); m.color.multiplyScalar(3); return m; };
+function rbox(w,h,d,mat,x,y,z,r=.02){ const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,3,r),mat); m.position.set(x,y,z); m.castShadow=m.receiveShadow=true; scene.add(m); return m; }
+function plane(w,h,mat,x,y,z,rx=0,ry=0){ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat); m.position.set(x,y,z); m.rotation.set(rx,ry,0); m.receiveShadow=true; scene.add(m); return m; }
+function neonTube(points,hex,r=.012){ const path=new THREE.CurvePath(); for(let i=0;i<points.length-1;i++) path.add(new THREE.LineCurve3(points[i],points[i+1]));
+  const m=new THREE.Mesh(new THREE.TubeGeometry(path,points.length*8,r,8,false),neonMat(hex)); scene.add(m); return m; }
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+
+/* dining room */
+plane(9,7,new THREE.MeshStandardMaterial({map:checker,roughness:.35}),0,0,-3.85,-Math.PI/2);
+plane(4,3,new THREE.MeshStandardMaterial({map:kitchenFloor,roughness:.6}),0,0,.95,-Math.PI/2);
+plane(9,3.4,MAT.wall,0,1.7,-7.3); plane(7.4,3.4,MAT.wall,-4.5,1.7,-3.6,0,Math.PI/2); plane(7.4,3.4,MAT.wall,4.5,1.7,-3.6,0,-Math.PI/2);
+plane(9,8,new THREE.MeshStandardMaterial({color:0x140c2c,roughness:1}),0,3.3,-3,Math.PI/2);
+plane(9,1.05,new THREE.MeshStandardMaterial({color:0xff7eb6,roughness:.5}),0,.53,-7.28);   // wainscot
+plane(7.4,1.05,new THREE.MeshStandardMaterial({color:0xff7eb6,roughness:.5}),-4.48,.53,-3.6,0,Math.PI/2);
+plane(7.4,1.05,new THREE.MeshStandardMaterial({color:0xff7eb6,roughness:.5}),4.48,.53,-3.6,0,-Math.PI/2);
+neonTube([V3(-4.45,1.08,-7.27),V3(4.45,1.08,-7.27)],0x39e6ff,.01);
+neonTube([V3(-4.47,1.08,-.2),V3(-4.47,1.08,-7.27)],0x39e6ff,.01); neonTube([V3(4.47,1.08,-.2),V3(4.47,1.08,-7.27)],0x39e6ff,.01);
+// big sign
+const sign=new THREE.Mesh(new THREE.PlaneGeometry(4,1),new THREE.MeshBasicMaterial({map:neonText("Neon Crust","400 170px Yellowtail, cursive","#ff4fa3"),transparent:true,toneMapped:false}));
+sign.material.color.setScalar(2.4); sign.position.set(0,2.45,-7.25); scene.add(sign);
+const sub=new THREE.Mesh(new THREE.PlaneGeometry(2.4,.4),new THREE.MeshBasicMaterial({map:neonText("PIZZA · SHAKES · OPEN LATE","400 64px Bungee, sans-serif","#39e6ff",1024,160),transparent:true,toneMapped:false}));
+sub.material.color.setScalar(2.1); sub.position.set(0,1.8,-7.25); scene.add(sub);
+neonTube([V3(-2.2,1.55,-7.26),V3(2.2,1.55,-7.26),V3(2.2,3.0,-7.26),V3(-2.2,3.0,-7.26),V3(-2.2,1.55,-7.26)],0xffd23f,.012);
+// window with the city at night
+plane(3.2,1.5,new THREE.MeshBasicMaterial({map:skyline,toneMapped:true}),-4.46,1.85,-3.8,0,Math.PI/2);
+for(const z of [-2.2,-3.8,-5.4]) rbox(.06,1.6,.06,MAT.chrome,-4.43,1.85,z,.01);
+rbox(.06,.06,3.3,MAT.chrome,-4.43,2.62,-3.8,.01); rbox(.06,.06,3.3,MAT.chrome,-4.43,1.08,-3.8,.01);
+// booths
+function booth(x,z,face){ rbox(1.3,.45,.5,MAT.vinyl,x,.23,z,.06); rbox(1.3,.7,.14,MAT.vinyl,x,.75,z+face*.24,.06);
+  rbox(1.2,.04,.6,MAT.formica,x,.76,z-face*.55,.02); rbox(.08,.74,.08,MAT.chrome,x,.37,z-face*.55,.02); }
+booth(-3.6,-2.2,1); booth(-3.6,-4.4,-1); booth(3.6,-2.2,1); booth(3.6,-4.4,-1);
+// jukebox
+{ const jb=rbox(.8,1.3,.5,MAT.dark,3.7,.65,-6.8,.1);
+  const arch=new THREE.Mesh(new THREE.CylinderGeometry(.4,.4,.5,32,1,false,-Math.PI/2,Math.PI),MAT.dark); arch.rotation.x=Math.PI/2; arch.rotation.z=Math.PI/2; arch.position.set(3.7,1.3,-6.8); scene.add(arch);
+  const glow=ctex(128,256,(c,w,h)=>{ const g=c.createLinearGradient(0,0,0,h); g.addColorStop(0,"#ff4fa3"); g.addColorStop(.5,"#ffd23f"); g.addColorStop(1,"#39e6ff"); c.fillStyle=g; c.fillRect(0,0,w,h);
+    c.fillStyle="rgba(0,0,0,.4)"; for(let y=10;y<h;y+=18) c.fillRect(10,y,w-20,6); });
+  const p=new THREE.Mesh(new THREE.PlaneGeometry(.6,1.05),new THREE.MeshBasicMaterial({map:glow,toneMapped:false})); p.material.color.setScalar(1.4); p.position.set(3.7,.95,-6.54); scene.add(p);
+  scene.userData.jukebox=p; }
+// ceiling lamps
+for(const [x,z] of [[-2.2,-2.4],[0,-2.4],[2.2,-2.4],[-2.2,-5],[0,-5],[2.2,-5],[0,.6]]){ const d=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.04,24),new THREE.MeshBasicMaterial({color:0xfff3e0})); d.position.set(x,3.26,z); scene.add(d); }
+// door
+rbox(1.1,2.2,.08,new THREE.MeshStandardMaterial({color:0x39e6ff,roughness:.2,metalness:.4,transparent:true,opacity:.35}),-3.4,1.1,-7.24,.02);
+neonTube([V3(-3.98,0,-7.22),V3(-3.98,2.25,-7.22),V3(-2.82,2.25,-7.22),V3(-2.82,0,-7.22)],0xff4fa3,.012);
+
+/* counter + kitchen */
+rbox(3.6,.98,.42,MAT.mint,0,.49,-.78,.04); rbox(3.75,.05,.58,MAT.formica,0,1.0,-.78,.015);
+neonTube([V3(-1.8,.9,-1.0),V3(1.8,.9,-1.0)],0xff4fa3,.012);
+const bell=new THREE.Group(); bell.position.set(-.3,1.025,-.68); scene.add(bell);
+{ const b=new THREE.Mesh(new THREE.CylinderGeometry(.05,.055,.015,24),MAT.dark); bell.add(b);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(.045,24,12,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0xffd23f,metalness:1,roughness:.2,emissive:0xffd23f,emissiveIntensity:0}));
+  dome.position.y=.008; bell.add(dome); dome.userData.action="order"; dome.userData.hl=dome.material; bell.userData.dome=dome; }
+rbox(.32,.18,.26,MAT.dark,.55,1.12,-.78,.03); rbox(.24,.12,.02,new THREE.MeshBasicMaterial({color:0x2fbf9a}),.55,1.25,-.66,.01);
+// back kitchen walls
+plane(4,2.4,new THREE.MeshStandardMaterial({map:tiles,roughness:.3}),0,1.2,2.0,0,Math.PI);
+plane(2.6,2.4,new THREE.MeshStandardMaterial({map:tiles,roughness:.3}),1.95,1.2,.75,0,-Math.PI/2);
+plane(2.6,2.4,new THREE.MeshStandardMaterial({map:tiles,roughness:.3}),-1.95,1.2,.75,0,Math.PI/2);
+// build counter (right) and cut counter (left)
+rbox(.78,.94,1.7,MAT.steel,1.05,.47,.05,.02); rbox(.8,.03,1.72,MAT.marble,1.05,.955,.05,.01);
+rbox(.78,.94,1.7,MAT.steel,-1.05,.47,.05,.02); rbox(.8,.03,1.72,MAT.marble,-1.05,.955,.05,.01);
+const BUILD_POS=V3(.86,.972,0), CUT_POS=V3(-.86,.985,0);
+{ const slab=new THREE.Mesh(new THREE.CylinderGeometry(.21,.21,.012,48),new THREE.MeshPhysicalMaterial({color:0x2b2440,roughness:.3,clearcoat:1})); slab.position.set(BUILD_POS.x,.966,0); slab.receiveShadow=true; scene.add(slab);
+  const board=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.025,48),MAT.wood); board.position.set(CUT_POS.x,.971,0); board.receiveShadow=true; scene.add(board); }
+const cutPlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1.4),new THREE.MeshBasicMaterial({visible:false})); cutPlane.rotation.x=-Math.PI/2; cutPlane.position.set(-.86,1.0,0); cutPlane.userData.action="cut"; scene.add(cutPlane);
+// oven
+rbox(2.0,.6,.62,MAT.steel,0,.3,1.65,.02); rbox(2.0,1.0,.62,MAT.chrome,0,1.1,1.65,.04);
+const OVEN_POS=[V3(.46,.905,1.17),V3(-.46,.905,1.17)], ovenGlow=[], ovenMouth=[];
+rbox(2.0,.03,.36,MAT.steel,0,.885,1.17,.01);
+for(let i=0;i<2;i++){
+  const mouth=new THREE.Mesh(new THREE.BoxGeometry(.66,.26,.03),new THREE.MeshStandardMaterial({color:0x140806,roughness:1,emissive:0xff6a1a,emissiveIntensity:.05}));
+  mouth.position.set(OVEN_POS[i].x,1.02,1.335); mouth.userData.action="oven:"+i; mouth.userData.hl=mouth.material; scene.add(mouth); ovenMouth.push(mouth);
+  const gl=new THREE.PointLight(0xff7a2a,0,1.2,2); gl.position.set(OVEN_POS[i].x,1.08,1.32); scene.add(gl); ovenGlow.push(gl);
+  const num=new THREE.Mesh(new THREE.PlaneGeometry(.16,.12),new THREE.MeshBasicMaterial({map:neonText(String(i+1),"400 200px Bungee","#ffd23f",256,192),transparent:true,toneMapped:false}));
+  num.material.color.setScalar(1.6); num.position.set(OVEN_POS[i].x,1.3,1.335); num.rotation.y=Math.PI; scene.add(num);
+}
+neonTube([V3(-1.0,1.6,1.33),V3(1.0,1.6,1.33)],0xff4fa3,.012);
+
+/* toppings, trays, sauce and cheese */
+function toppingGeo(shape,id){
+  switch(shape){
+    case "disc": return id==="jal"?new THREE.CylinderGeometry(.013,.013,.004,14):new THREE.CylinderGeometry(.018,.018,.0045,18);
+    case "ring": return new THREE.TorusGeometry(id==="olive"?.009:.014,id==="olive"?.0042:.0028,6,16).rotateX(Math.PI/2);
+    case "lump": return new THREE.DodecahedronGeometry(.011,0).scale(1,.55,1);
+    case "wedge": { const s=new THREE.Shape(); s.moveTo(-.013,-.008); s.lineTo(.013,-.008); s.lineTo(.006,.009); s.lineTo(-.006,.009); s.closePath();
+      return new THREE.ExtrudeGeometry(s,{depth:.007,bevelEnabled:false}).rotateX(-Math.PI/2); }
+    case "strip": return new THREE.BoxGeometry(.036,.004,.011);
+    case "mush": { const s=new THREE.Shape(); s.absarc(0,.003,.013,0,Math.PI,false); s.lineTo(-.005,.003); s.lineTo(-.005,-.012); s.lineTo(.005,-.012); s.lineTo(.005,.003); s.closePath();
+      return new THREE.ExtrudeGeometry(s,{depth:.004,bevelEnabled:false}).rotateX(-Math.PI/2); }
+  }
+}
+const TGEO={}, TMAT={};
+for(const t of TOPPINGS){ TGEO[t.id]=toppingGeo(t.shape,t.id); TMAT[t.id]=new THREE.MeshStandardMaterial({color:t.col,roughness:.55});
+  if(t.id==="jal"||t.id==="bacon"){ TMAT[t.id].emissive=new THREE.Color(t.col2); TMAT[t.id].emissiveIntensity=.08; } }
+function labelSprite(text,color="#ffffff",sub=""){
+  const t=ctex(256,96,(c,w,h)=>{ c.fillStyle="rgba(18,11,38,.85)"; c.beginPath(); c.roundRect(4,4,w-8,h-8,18); c.fill(); c.strokeStyle=color; c.lineWidth=4; c.stroke();
+    c.font="600 30px Rubik, sans-serif"; c.fillStyle="#fff3e0"; c.textAlign="center"; c.textBaseline="middle"; c.fillText(text,w/2,sub?h/2-12:h/2);
+    if(sub){ c.font="400 20px Bungee, sans-serif"; c.fillStyle=color; c.fillText(sub,w/2,h/2+18); } });
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false})); s.scale.set(.15,.056,1); s.renderOrder=3; return s;
+}
+const trays=[];
+function buildTrays(){
+  for(const tr of trays){ scene.remove(tr.group); } trays.length=0;
+  const rank=rankOf(SAVE.xp), n=TOPPINGS.length;
+  TOPPINGS.forEach((t,i)=>{
+    const g=new THREE.Group(); const z=-.58+i*(1.16/(n-1)), x=1.15; g.position.set(x,.97,z); scene.add(g);
+    const locked=t.rank>rank;
+    const trayMat=new THREE.MeshStandardMaterial({color:locked?0x55506a:0xffffff,roughness:.3,emissive:0x39e6ff,emissiveIntensity:0});
+    const tray=new THREE.Mesh(new RoundedBoxGeometry(.11,.035,.12,2,.01),trayMat); tray.position.y=.017; tray.castShadow=true; g.add(tray);
+    if(!locked){ for(let k=0;k<6;k++){ const m=new THREE.Mesh(TGEO[t.id],TMAT[t.id]); m.position.set(rnd(-.035,.035),.038,rnd(-.04,.04)); m.rotation.y=rnd(0,6); g.add(m); }
+      tray.userData.action="tool:"+t.id; tray.userData.hl=trayMat; }
+    const lab=labelSprite(t.name,locked?"#8a83a6":t.col==="#26222a"?"#b9add6":t.col,locked?"RANK "+t.rank:""); lab.position.set(0,.1,0); g.add(lab);
+    trays.push({group:g,tray,t,locked});
+  });
+}
+function bowl(x,z,col,action,label){
+  const g=new THREE.Group(); g.position.set(x,.97,z); scene.add(g);
+  const m=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.25,emissive:0x39e6ff,emissiveIntensity:0});
+  const b=new THREE.Mesh(new THREE.CylinderGeometry(.075,.055,.06,28),m); b.position.y=.03; b.castShadow=true; g.add(b);
+  const f=new THREE.Mesh(new THREE.CircleGeometry(.068,28),new THREE.MeshStandardMaterial({color:col,roughness:.4})); f.rotation.x=-Math.PI/2; f.position.y=.055; g.add(f);
+  b.userData.action=action; b.userData.hl=m; f.userData.action=action; f.userData.hl=m;
+  const lab=labelSprite(label,col); lab.position.set(0,.13,0); g.add(lab); return [b,f];
+}
+const sauceBowl=bowl(.95,-.4,"#c8321f","tool:sauce","Sauce"), cheeseBowl=bowl(.95,.4,"#f3d36b","tool:cheese","Cheese");
+const doughBox=new THREE.Group(); doughBox.position.set(.62,.97,-.55); scene.add(doughBox);
+{ const m=new THREE.MeshStandardMaterial({color:0xd8a46a,roughness:.6,emissive:0x39e6ff,emissiveIntensity:0});
+  const b=new THREE.Mesh(new RoundedBoxGeometry(.18,.06,.16,2,.01),m); b.position.y=.03; b.userData.action="dough"; b.userData.hl=m; doughBox.add(b);
+  for(let i=0;i<3;i++){ const d=new THREE.Mesh(new THREE.SphereGeometry(.035,16,12),new THREE.MeshStandardMaterial({color:0xf3dfb4,roughness:.8})); d.scale.y=.7; d.position.set(-.05+i*.05,.075,0); d.userData.action="dough"; d.userData.hl=m; doughBox.add(d); }
+  const lab=labelSprite("Dough","#ffd23f"); lab.position.set(0,.16,0); doughBox.add(lab); }
+
+/* lights */
+scene.add(new THREE.HemisphereLight(0xd8ccff,0x3a2040,1.1));
+const keyL=new THREE.DirectionalLight(0xfff0e0,1.6); keyL.position.set(1.5,4,1.5); keyL.target.position.set(0,0,-1); scene.add(keyL,keyL.target);
+keyL.castShadow=true; keyL.shadow.mapSize.set(2048,2048); Object.assign(keyL.shadow.camera,{left:-3,right:3,top:3,bottom:-3,near:.5,far:12}); keyL.shadow.bias=-.0005;
+for(const [x,z,c] of [[-3,-5,0xff4fa3],[3,-5,0x39e6ff],[0,-6.5,0xff4fa3]]){ const p=new THREE.PointLight(c,3,6,2); p.position.set(x,2.6,z); scene.add(p); }
+const kitchenLight=new THREE.PointLight(0xfff3e0,4,5,2); kitchenLight.position.set(0,2.6,.4); scene.add(kitchenLight);
+
+/* customers */
+function makeCustomer(def){
+  const g=new THREE.Group(), skin=new THREE.MeshStandardMaterial({color:def.skin,roughness:.6}), shirt=new THREE.MeshStandardMaterial({color:def.shirt,roughness:.6}),
+    pants=new THREE.MeshStandardMaterial({color:0x232a44,roughness:.7}), hair=new THREE.MeshPhysicalMaterial({color:def.hairCol,roughness:.45,clearcoat:.4});
+  const legs=[-.07,.07].map(x=>{ const l=new THREE.Mesh(new THREE.CapsuleGeometry(.055,.62,4,10),pants); l.position.set(x,.37,0); g.add(l); return l; });
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.17,.42,6,16),shirt); body.position.y=1.0; body.scale.z=.75; g.add(body);
+  const arms=[-.22,.22].map(x=>{ const a=new THREE.Mesh(new THREE.CapsuleGeometry(.045,.42,4,10),shirt); a.position.set(x,1.02,0); a.rotation.z=x<0?-.12:.12; g.add(a); return a; });
+  const head=new THREE.Group(); head.position.y=1.47; g.add(head);
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(.13,24,18),skin));
+  const black=new THREE.MeshStandardMaterial({color:0x111111,roughness:.3});
+  if(def.glasses){ for(const x of [-.05,.05]){ const l=new THREE.Mesh(new THREE.BoxGeometry(.075,.04,.02),black); l.position.set(x,.02,.122); head.add(l); } const br=new THREE.Mesh(new THREE.BoxGeometry(.03,.01,.01),black); br.position.set(0,.03,.128); head.add(br); }
+  else for(const x of [-.045,.045]){ const e=new THREE.Mesh(new THREE.SphereGeometry(.013,10,8),black); e.position.set(x,.02,.118); head.add(e); }
+  const smile=new THREE.Mesh(new THREE.TorusGeometry(.035,.006,6,16,Math.PI),new THREE.MeshStandardMaterial({color:0x7a2020})); smile.position.set(0,-.045,.118); smile.rotation.z=Math.PI; head.add(smile);
+  const H=(geo,pos,scale,rot)=>{ const m=new THREE.Mesh(geo,hair); m.position.set(...pos); if(scale) m.scale.set(...scale); if(rot) m.rotation.set(...rot); head.add(m); return m; };
+  switch(def.hair){
+    case "beehive": H(new THREE.SphereGeometry(.14,20,16),[0,.12,-.02],[1,1.55,1]); break;
+    case "pompadour": H(new THREE.SphereGeometry(.135,20,16),[0,.06,-.03],[1,.8,1.05]); H(new THREE.SphereGeometry(.09,16,12),[0,.12,.07],[1.1,.75,1.3]); break;
+    case "ponytail": H(new THREE.SphereGeometry(.137,20,16),[0,.05,-.02],[1,.85,1]); H(new THREE.CapsuleGeometry(.04,.16,4,8),[0,-.02,-.16],null,[.5,0,0]); break;
+    case "cap": { const cm=new THREE.MeshStandardMaterial({color:def.hairCol,roughness:.5}); const c=new THREE.Mesh(new THREE.SphereGeometry(.137,20,12,0,Math.PI*2,0,Math.PI/2),cm); c.position.y=.03; head.add(c);
+      const v=new THREE.Mesh(new THREE.BoxGeometry(.18,.012,.12),cm); v.position.set(0,.04,.15); head.add(v); break; }
+    case "buzz": H(new THREE.SphereGeometry(.134,20,16),[0,.03,-.01],[1,.85,1]); break;
+    case "bun": H(new THREE.SphereGeometry(.136,20,16),[0,.05,-.02],[1,.85,1]); H(new THREE.SphereGeometry(.065,16,12),[0,.15,-.08]); break;
+    case "mohawk": H(new THREE.BoxGeometry(.04,.12,.26),[0,.15,-.01]); break;
+  }
+  g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  g.userData={legs,arms,head,body};
+  return g;
+}
+
+
+/* =========================================================
+   Pizzas: dough, painted sauce and cheese, placed toppings, bake colour and cut lines
+   ========================================================= */
+const PR=.16, MASK=40;
+const doughGeo=new THREE.CylinderGeometry(PR,PR*1.02,.012,48), crustGeo=new THREE.TorusGeometry(PR,.016,10,48).rotateX(Math.PI/2), topGeo=new THREE.CircleGeometry(PR,48).rotateX(-Math.PI/2);
+const C_DOUGH=new THREE.Color("#f1d9a6"), C_GOLD=new THREE.Color("#d9963f"), C_DARK=new THREE.Color("#5a2e14"), C_BURNT=new THREE.Color("#241209");
+function makePizza(ticket){
+  const g=new THREE.Group();
+  const cv=document.createElement("canvas"); cv.width=cv.height=256; const cx=cv.getContext("2d");
+  const grd=cx.createRadialGradient(128,128,10,128,128,130); grd.addColorStop(0,"#f8e6bf"); grd.addColorStop(1,"#ecd09a"); cx.fillStyle=grd; cx.fillRect(0,0,256,256);
+  cx.fillStyle="rgba(190,150,90,.25)"; for(let i=0;i<120;i++){ cx.beginPath(); cx.arc(rnd(0,256),rnd(0,256),rnd(.6,1.8),0,7); cx.fill(); }
+  const tex=new THREE.CanvasTexture(cv); tex.colorSpace=THREE.SRGBColorSpace;
+  const base=new THREE.Mesh(doughGeo,new THREE.MeshStandardMaterial({color:C_DOUGH.clone(),roughness:.8})); base.position.y=.006;
+  const top=new THREE.Mesh(topGeo,new THREE.MeshStandardMaterial({map:tex,roughness:.6})); top.position.y=.0125; top.userData.action="pizza";
+  const crust=new THREE.Mesh(crustGeo,new THREE.MeshStandardMaterial({color:C_DOUGH.clone(),roughness:.75})); crust.position.y=.013;
+  g.add(base,top,crust); g.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  scene.add(g);
+  return {id:G.uid++,ticket,g,cv,cx,tex,top,crust,base,sauce:new Uint8Array(MASK*MASK),cheese:new Uint8Array(MASK*MASK),pieces:[],bake:0,cuts:[],stage:"build",scores:{}};
+}
+function placePizza(p,pos,rotY){ p.g.position.copy(pos); p.g.rotation.y=rotY; p.g.visible=true; p.g.scale.setScalar(1); p.pop=1; }
+function paintAt(p,kind,lx,lz){
+  if(Math.hypot(lx,lz)>PR*.97) return false;
+  const px=(lx/PR*.5+.5)*256, py=(lz/PR*.5+.5)*256, br=.036/PR*128, c=p.cx;
+  if(kind==="sauce"){ const g=c.createRadialGradient(px,py,0,px,py,br); g.addColorStop(0,"rgba(196,40,24,.95)"); g.addColorStop(.7,"rgba(188,36,22,.85)"); g.addColorStop(1,"rgba(170,30,18,0)");
+    c.fillStyle=g; c.beginPath(); c.arc(px,py,br,0,7); c.fill(); }
+  else for(let i=0;i<16;i++){ const a=rnd(0,6.28), r=rnd(0,br); c.save(); c.translate(px+Math.cos(a)*r,py+Math.sin(a)*r); c.rotate(rnd(0,3.2)); c.fillStyle=pick(["#f7e08a","#f3d36b","#fbe9a8","#f0cf5e"]); c.fillRect(-5,-1.3,10,2.6); c.restore(); }
+  const m=kind==="sauce"?p.sauce:p.cheese, cell=2*PR/MASK, rr=.038;
+  const i0=Math.max(0,Math.floor((lx-rr+PR)/cell)), i1=Math.min(MASK-1,Math.floor((lx+rr+PR)/cell)), j0=Math.max(0,Math.floor((lz-rr+PR)/cell)), j1=Math.min(MASK-1,Math.floor((lz+rr+PR)/cell));
+  for(let i=i0;i<=i1;i++) for(let j=j0;j<=j1;j++){ const x=-PR+(i+.5)*cell, z=-PR+(j+.5)*cell; if(Math.hypot(x-lx,z-lz)<rr) m[j*MASK+i]=1; }
+  p.tex.needsUpdate=true; return true;
+}
+function coverage(m){ let n=0,k=0; const cell=2*PR/MASK;
+  for(let i=0;i<MASK;i++) for(let j=0;j<MASK;j++){ const x=-PR+(i+.5)*cell, z=-PR+(j+.5)*cell; if(Math.hypot(x,z)<PR*.86){ n++; if(m[j*MASK+i]) k++; } } return n?k/n:0; }
+function placeTopping(p,id,lx,lz){
+  if(Math.hypot(lx,lz)>PR*.92) return false;
+  const m=new THREE.Mesh(TGEO[id],TMAT[id]); m.position.set(lx,.016+Math.random()*.002,lz); m.rotation.y=rnd(0,6.28); m.castShadow=true; m.scale.setScalar(.01);
+  m.material.envMapIntensity=.22; p.g.add(m); p.pieces.push({id,x:lx,z:lz,m,grow:0}); return true;
+}
+function setBakeLook(p){
+  const b=p.bake, col=new THREE.Color();
+  if(b<.55) col.copy(C_DOUGH).lerp(C_GOLD,b/.55); else if(b<.85) col.copy(C_GOLD).lerp(C_DARK,(b-.55)/.3); else col.copy(C_DARK).lerp(C_BURNT,Math.min(1,(b-.85)/.15));
+  p.crust.material.color.copy(col); p.base.material.color.copy(col);
+  const topCol=new THREE.Color(1,1,1).lerp(new THREE.Color(.82,.62,.44),Math.min(1,b/.8)); if(b>.85) topCol.lerp(new THREE.Color(.3,.2,.14),Math.min(1,(b-.85)/.15));
+  p.top.material.color.copy(topCol);
+  for(const q of p.pieces){ if(!q.m.material.userData.baked) { q.m.material=q.m.material.clone(); q.m.material.userData.baked=true; } q.m.material.color.set(TOP[q.id].col).lerp(new THREE.Color(.25,.15,.1),Math.max(0,(b-.6)*.9)); }
+}
+function inRegion(reg,x,z){ switch(reg){ case "all":return true; case "L":return x<0; case "R":return x>=0; case "q1":return x<0&&z<0; case "q2":return x>=0&&z<0; case "q3":return x>=0&&z>=0; case "q4":return x<0&&z>=0; } return false; }
+
+/* =========================================================
+   Orders and scoring
+   ========================================================= */
+function genOrder(def){
+  const avail=unlocked().map(t=>t.id), day=SAVE.day;
+  const pool=[...def.fav.filter(f=>avail.includes(f)),...avail.sort(()=>Math.random()-.5)];
+  const tops=[...new Set(pool)];
+  const nE=day<=1?1:day<=2?pick([1,2]):day<=4?pick([2,2,3]):pick([2,3,3,4]);
+  const LAY={1:[["all"]],2:[["all","all"],["L","R"],["all","q2"],["all","L"],["R","q4"]],3:[["all","L","R"],["L","R","q1"],["all","q1","q3"],["q1","q2","all"]],4:[["L","R","q1","q4"],["all","q1","q2","q3"],["q1","q2","q3","q4"]]};
+  const layout=pick(LAY[Math.min(nE,tops.length)]||LAY[1]);
+  const entries=layout.map((region,i)=>({t:tops[i],region,count:REGION_COUNT[region]}));
+  return {entries,bake:day<=1?"medium":pick(["light","medium","medium","well"]),slices:day<=1?8:pick([4,6,8,8])};
+}
+function scoreBuild(p){
+  const t=p.ticket, sc=coverage(p.sauce), ch=coverage(p.cheese);
+  const sauceS=Math.min(1,Math.max(0,(sc-.25)/.6)), cheeseS=Math.min(1,Math.max(0,(ch-.25)/.6));
+  let es=0; for(const e of t.entries){ const n=p.pieces.filter(q=>q.id===e.t&&inRegion(e.region,q.x,q.z)).length; es+=Math.max(0,1-Math.abs(n-e.count)/e.count); }
+  es/=t.entries.length;
+  let stray=0; for(const q of p.pieces){ const regs=t.entries.filter(e=>e.t===q.id); if(!regs.length||!regs.some(e=>inRegion(e.region,q.x,q.z))) stray++; }
+  return Math.max(0,Math.round(100*(.15*sauceS+.15*cheeseS+.7*es)-stray*6));
+}
+const scoreBake=p=>{ const d=Math.abs(p.bake-BAKE[p.ticket.bake].t); return Math.round(100*Math.max(0,1-Math.max(0,d-.03)/.22)); };
+function scoreCut(p){
+  const need=p.ticket.slices/2, n=p.cuts.length; if(!n) return 0;
+  const angs=p.cuts.map(c=>c.ang).sort((a,b)=>a-b), s=Math.PI/need;
+  let err=0; if(n>1){ for(let i=0;i<n;i++){ const gap=i<n-1?angs[i+1]-angs[i]:angs[0]+Math.PI-angs[n-1]; err+=Math.abs(gap-Math.PI/n); } err/=n; }
+  const off=p.cuts.reduce((a,c)=>a+c.off,0)/n;
+  return Math.max(0,Math.round(100-err*180/Math.PI*2.2-off*130-28*Math.abs(n-need)));
+}
+function scoreWait(t){ const allowed=80+25*t.entries.length, w=T-t.orderedAt; return Math.round(100*Math.max(0,Math.min(1,1-(w-allowed)/(allowed*1.6)))); }
+
+/* =========================================================
+   Customers
+   ========================================================= */
+const DOOR=V3(-3.4,0,-6.8), REG=V3(0,0,-1.35), PICKUP=V3(1.0,0,-1.35);
+const QUEUE=[REG,V3(.3,0,-2.05),V3(-.25,0,-2.7)];
+const WAIT=[V3(-2.3,0,-3.2),V3(2.3,0,-3.2),V3(-1.3,0,-3.8),V3(1.3,0,-3.8),V3(-.35,0,-4.4),V3(.65,0,-4.7)];
+const G={station:"order",tool:null,tickets:[],sel:null,buildPizza:null,ovens:[null,null],cutQueue:[],customers:[],queue:[],day:null,cutDrag:null,lastPaint:null,lastDrop:null,uid:1,paused:true,waitUsed:[]};
+let T=0;
+function spawnCustomer(def){
+  const g=makeCustomer(def); g.position.copy(DOOR); scene.add(g);
+  tameReflections(g); const c={def,g,path:[],state:"queue",t:Math.random()*10}; G.customers.push(c); G.queue.push(c);
+  goTo(c,[QUEUE[Math.min(G.queue.length-1,2)]],()=>{ if(G.queue[0]===c) c.state="atReg"; });
+  SFX.door();
+}
+function goTo(c,pts,cb){ c.path=pts.map(v=>v.clone()); c.onArrive=cb; }
+function advanceQueue(){ G.queue.forEach((c,i)=>goTo(c,[QUEUE[Math.min(i,2)]],()=>{ if(G.queue[0]===c) c.state="atReg"; })); }
+function updateCustomers(dt){
+  const camXZ=camera.getWorldPosition(V3(0,0,0)); camXZ.y=0;
+  for(const c of G.customers){
+    c.t+=dt; const u=c.g.userData;
+    if(c.path.length){
+      const tgt=c.path[0], d=tgt.clone().sub(c.g.position); d.y=0; const L=d.length(), step=1.35*dt;
+      if(L<=step){ c.g.position.copy(tgt); c.path.shift(); if(!c.path.length&&c.onArrive){ const f=c.onArrive; c.onArrive=null; f(); } }
+      else { c.g.position.addScaledVector(d.normalize(),step); c.g.lookAt(c.g.position.clone().add(d)); }
+      const sw=Math.sin(c.t*9); u.legs[0].rotation.x=sw*.5; u.legs[1].rotation.x=-sw*.5; u.arms[0].rotation.x=-sw*.4; u.arms[1].rotation.x=sw*.4; c.g.position.y=Math.abs(Math.cos(c.t*9))*.03;
+    } else {
+      u.legs[0].rotation.x*=.8; u.legs[1].rotation.x*=.8; u.arms[0].rotation.x*=.8; u.arms[1].rotation.x*=.8;
+      c.g.position.y=c.hop?Math.max(0,Math.sin((T-c.hop)*9))*.12*(T-c.hop<1.4?1:0):0;
+      const look=camXZ.clone(); look.y=0; c.g.lookAt(look.x,0,look.z);
+      u.head.rotation.z=Math.sin(c.t*1.3)*.06;
+    }
+  }
+  for(let i=G.customers.length-1;i>=0;i--) if(G.customers[i].state==="gone"){ scene.remove(G.customers[i].g); G.customers.splice(i,1); }
+}
+
+/* =========================================================
+   Actions
+   ========================================================= */
+function takeOrder(){
+  const c=G.queue[0];
+  if(!c||c.state!=="atReg"){ toast(c?"Hang on, they’re still walking up":"Nobody at the window yet"); return; }
+  G.queue.shift(); advanceQueue();
+  const o=genOrder(c.def);
+  const t={id:G.uid++,cust:c,name:c.def.name,...o,orderedAt:T,pizza:null}; c.ticket=t; G.tickets.push(t);
+  if(!G.sel||G.sel.pizza) G.sel=t;
+  const wi=WAIT.findIndex((_,i)=>!G.waitUsed[i]); c.waitIdx=wi<0?0:wi; G.waitUsed[c.waitIdx]=true;
+  c.state="waiting"; goTo(c,[WAIT[c.waitIdx]]);
+  SFX.bell(); bell.userData.dome.position.y=-.004; setTimeout(()=>bell.userData.dome.position.y=.008,120);
+  toast(`New ticket: ${c.def.name}`);
+}
+function grabDough(){
+  if(G.buildPizza){ toast("Finish the pie on the counter first"); return; }
+  let t=G.sel&&!G.sel.pizza?G.sel:G.tickets.find(x=>!x.pizza);
+  if(!t){ toast("Take an order first"); SFX.sad(); return; }
+  const p=makePizza(t); tameReflections(p.g); t.pizza=p; G.sel=t; G.buildPizza=p; placePizza(p,BUILD_POS,-Math.PI/2); SFX.plop();
+  if(!G.tool) G.tool="sauce";
+}
+function sendToOven(){
+  const p=G.buildPizza; if(!p) return;
+  const slot=G.ovens.findIndex(x=>!x); if(slot<0){ toast("Both ovens are full"); SFX.sad(); return; }
+  p.scores.build=scoreBuild(p); p.stage="oven"; G.ovens[slot]=p; G.buildPizza=null; placePizza(p,OVEN_POS[slot],Math.PI); p.dinged=p.warned=false;
+  SFX.oven(); toast(`Into oven ${slot+1}`); G.tool=null;
+}
+function tossPizza(){ const p=G.buildPizza; if(!p) return; scene.remove(p.g); p.ticket.pizza=null; G.buildPizza=null; SFX.sad(); }
+function takeOut(i){
+  const p=G.ovens[i]; if(!p) return;
+  G.ovens[i]=null; p.scores.bake=scoreBake(p); p.stage="cut"; G.cutQueue.push(p);
+  if(G.cutQueue.length===1) placePizza(p,CUT_POS,Math.PI/2); else p.g.visible=false;
+  SFX.pick(); toast(`${p.ticket.name}’s pie is out. Off to the cutting board`);
+}
+function addCut(p,a,b){
+  const dx=b.x-a.x, dz=b.z-a.z, L=Math.hypot(dx,dz); if(L<PR*1.0) { toast("Drag all the way across the pie"); return; }
+  const ux=dx/L, uz=dz/L, off=Math.abs(a.x*uz-a.z*ux); if(off>PR*.9) return;
+  const ang=((Math.atan2(uz,ux)%Math.PI)+Math.PI)%Math.PI;
+  const h=Math.sqrt(PR*PR-off*off), mx=(a.x*uz-a.z*ux)*uz, mz=-(a.x*uz-a.z*ux)*ux;  // foot of the perpendicular from the centre
+  const toC=(x,z)=>[(x/PR*.5+.5)*256,(z/PR*.5+.5)*256], [x1,y1]=toC(mx-ux*h,mz-uz*h), [x2,y2]=toC(mx+ux*h,mz+uz*h);
+  const c=p.cx; c.strokeStyle="rgba(70,35,15,.85)"; c.lineWidth=3.5; c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+  c.strokeStyle="rgba(255,240,210,.35)"; c.lineWidth=1; c.stroke(); p.tex.needsUpdate=true;
+  p.cuts.push({ang,off:off/PR}); SFX.slice(); sparkAt(CUT_POS,10);
+}
+function serve(){
+  const p=G.cutQueue[0]; if(!p||!p.cuts.length) return;
+  G.cutQueue.shift(); if(G.cutQueue[0]) placePizza(G.cutQueue[0],CUT_POS,Math.PI/2);
+  const t=p.ticket, c=t.cust;
+  const s={wait:scoreWait(t),build:p.scores.build,bake:p.scores.bake,cut:scoreCut(p)};
+  const total=Math.round((s.wait+s.build+s.bake+s.cut)/4), stars=total>=90?3:total>=75?2:total>=55?1:0;
+  const tip=Math.round((1.5+t.entries.length*.6+(t.slices===8?.3:0))*Math.pow(total/100,1.4)*100)/100;
+  const xp=total+stars*15;
+  scene.remove(p.g); G.tickets=G.tickets.filter(x=>x!==t); if(G.sel===t) G.sel=G.tickets.find(x=>!x.pizza)||null;
+  G.waitUsed[c.waitIdx]=false; c.state="pickup"; goTo(c,[PICKUP],()=>{ if(stars>=2) c.hop=T; });
+  G.day.served++; G.day.tips+=tip; G.day.scores.push(total); SAVE.money+=tip; SAVE.xp+=xp; store.set("save",SAVE);
+  SFX.cash(); showScore(t.name,s,total,stars,tip);
+}
+function sparkAt(pos,n){ for(let i=0;i<n;i++) sparks.push({p:pos.clone().add(V3(rnd(-.12,.12),.03,rnd(-.12,.12))),v:V3(rnd(-.4,.4),rnd(.4,1),rnd(-.4,.4)),life:1}); }
+const sparks=[], sparkGeo=new THREE.SphereGeometry(.006,6,4), sparkMat=neonMat(0xffd23f);
+const sparkMesh=new THREE.InstancedMesh(sparkGeo,sparkMat,200); sparkMesh.count=0; scene.add(sparkMesh);
+
+
+/* =========================================================
+   Tickets (2D drawings)
+   ========================================================= */
+const REGION_C={all:[0,0],L:[-.5,0],R:[.5,0],q1:[-.48,-.48],q2:[.48,-.48],q3:[.48,.48],q4:[-.48,.48]};
+function drawIcon(c,id,x,y,s){
+  const t=TOP[id]; c.save(); c.translate(x,y);
+  c.fillStyle=t.col; c.strokeStyle=t.col; c.lineWidth=s*.28;
+  switch(t.shape){
+    case "disc": c.beginPath(); c.arc(0,0,s,0,7); c.fill(); c.fillStyle=t.col2; for(const [a,b] of [[-.3,-.3],[.35,.1],[-.1,.4]]){ c.beginPath(); c.arc(a*s,b*s,s*.16,0,7); c.fill(); } break;
+    case "ring": c.beginPath(); c.arc(0,0,s*.75,0,7); c.stroke(); break;
+    case "lump": c.beginPath(); for(let i=0;i<7;i++){ const a=i/7*6.28, r=s*(.75+.25*Math.sin(i*2.3)); c.lineTo(Math.cos(a)*r,Math.sin(a)*r); } c.closePath(); c.fill(); break;
+    case "wedge": c.beginPath(); c.moveTo(-s,s*.6); c.lineTo(s,s*.6); c.lineTo(s*.4,-s*.7); c.lineTo(-s*.4,-s*.7); c.closePath(); c.fill(); break;
+    case "strip": c.fillRect(-s*1.2,-s*.4,s*2.4,s*.8); c.fillStyle=t.col2; c.fillRect(-s*1.2,-s*.08,s*2.4,s*.16); break;
+    case "mush": c.beginPath(); c.arc(0,-s*.1,s*.9,Math.PI,0); c.fill(); c.fillRect(-s*.3,-s*.1,s*.6,s*.9); break;
+  }
+  c.restore();
+}
+function drawTicketPizza(cv,t){
+  const c=cv.getContext("2d"), S=cv.width, R=S*.44, cx=S/2, cy=S/2; c.clearRect(0,0,S,S);
+  c.fillStyle="#e3b46a"; c.beginPath(); c.arc(cx,cy,R+S*.03,0,7); c.fill();
+  c.fillStyle="#d2462e"; c.beginPath(); c.arc(cx,cy,R,0,7); c.fill();
+  c.fillStyle="rgba(247,224,138,.85)"; c.beginPath(); c.arc(cx,cy,R*.93,0,7); c.fill();
+  const regs=t.entries.map(e=>e.region);
+  c.strokeStyle="rgba(42,35,64,.55)"; c.lineWidth=S*.012; c.setLineDash([S*.03,S*.02]);
+  if(regs.some(r=>r!=="all")){ c.beginPath(); c.moveTo(cx,cy-R); c.lineTo(cx,cy+R); c.stroke(); }
+  if(regs.some(r=>r[0]==="q")){ c.beginPath(); c.moveTo(cx-R,cy); c.lineTo(cx+R,cy); c.stroke(); }
+  c.setLineDash([]);
+  const seen={};
+  t.entries.forEach(e=>{
+    const k=seen[e.region]=(seen[e.region]||0)+1;
+    const [rx,ry]=REGION_C[e.region]; let x=cx+rx*R, y=cy+ry*R; if(e.region==="all"){ x+=k===1?0:0; y+=k===1?-R*.32:R*.32; } else if(k>1) y+=R*.28;
+    const s=S*(e.region[0]==="q"?.055:.07);
+    drawIcon(c,e.t,x-s*1.1,y,s);
+    c.font=`700 ${Math.round(S*.1)}px Rubik, sans-serif`; c.fillStyle="#2a2340"; c.textAlign="left"; c.textBaseline="middle"; c.fillText("×"+e.count,x+s*.2,y+1);
+  });
+}
+function bakeShort(b){ return b==="light"?"LIGHT":b==="medium"?"MED":"WELL"; }
+let railSig="";
+function renderRail(){
+  const sig=G.tickets.map(t=>t.id+":"+(t.pizza?t.pizza.stage:"-")+(G.sel===t?"*":"")).join("|");
+  if(sig!==railSig){
+    railSig=sig; const rail=$("rail"); rail.innerHTML="";
+    for(const t of G.tickets){
+      const b=document.createElement("button"); b.className="ticket"+(G.sel===t?" sel":""); b.type="button"; b.dataset.id=t.id;
+      b.setAttribute("aria-label",`${t.name}'s ticket`);
+      const st=t.pizza?{build:"BUILD",oven:"OVEN",cut:"CUT"}[t.pizza.stage]:"";
+      b.innerHTML=`${st?`<span class="stage">${st}</span>`:""}<div class="tn"><span>${t.name}</span><span>#${t.id}</span></div><canvas width="196" height="196"></canvas>
+        <div class="tf"><span>${bakeShort(t.bake)}</span><span>${t.slices} SLICES</span></div><div class="pat"><i></i></div>`;
+      drawTicketPizza(b.querySelector("canvas"),t);
+      b.onclick=()=>{ G.sel=t; SFX.click(); if(!t.pizza&&G.station!=="build") setStation("build"); };
+      rail.appendChild(b);
+    }
+  }
+  for(const el of $("rail").children){ const t=G.tickets.find(x=>x.id==+el.dataset.id); if(!t) continue;
+    const f=Math.min(1,(T-t.orderedAt)/(80+25*t.entries.length*2.6)); const i=el.querySelector(".pat i"); i.style.width=(100-f*100)+"%"; i.style.background=f<.5?"#3bbf7a":f<.8?"#e8a23a":"#d9443a"; }
+}
+function activeTicket(){ if(G.station==="build") return G.buildPizza?.ticket||G.sel; if(G.station==="cut") return G.cutQueue[0]?.ticket||null; if(G.station==="bake") return G.ovens.find(Boolean)?.ticket||null; return null; }
+let bigSig="";
+function renderBigTicket(){
+  const t=activeTicket(); $("bigTicket").hidden=!t||G.station==="order";
+  if(!t) return; const sig=t.id+G.station; if(sig===bigSig) return; bigSig=sig;
+  $("btName").textContent=`${t.name}’s order`; drawTicketPizza($("btCanvas"),t);
+  $("btList").innerHTML=t.entries.map(e=>`<div><span>${TOP[e.t].name}</span><span>${e.count} · ${REGION_LABEL[e.region]}</span></div>`).join("")+
+    `<div><span>Bake</span><span>${BAKE[t.bake].label}</span></div><div><span>Cut</span><span>${t.slices} slices</span></div>`;
+}
+
+/* =========================================================
+   Station panels, badges and hints
+   ========================================================= */
+let ctxSig="";
+function renderCtx(){
+  const st=G.station, reg=G.queue[0], p=G.buildPizza, cp=G.cutQueue[0];
+  const sig=[st,reg&&reg.state==="atReg"?reg.def.name:"",!!p,G.ovens.map(o=>o?o.id:0).join(),cp?cp.id:0,cp?cp.cuts.length:0,G.tickets.length].join("|");
+  if(sig===ctxSig) return updateCtx(); ctxSig=sig; const el=$("ctx");
+  if(st==="order"){
+    const atReg=reg&&reg.state==="atReg";
+    el.innerHTML=`<h3>Order window</h3><p>${atReg?`<b style="color:var(--cream)">${reg.def.name}</b> is waiting at the window.`:G.queue.length?"Someone is walking up…":G.day&&G.day.spawned<G.day.total?"Quiet for a moment. The next guest is on the way.":"Everyone today has ordered."}</p>
+      <div class="row"><button class="big pink" id="bTake" ${atReg?"":"disabled"}>Take order</button></div><p>${G.queue.length>1?`${G.queue.length-1} more in line.`:""}</p>`;
+    $("bTake").onclick=takeOrder;
+  } else if(st==="build"){
+    el.innerHTML=`<h3>Build</h3><p id="bText"></p>
+      <div class="meterRow"><span><span>Sauce</span><b id="mS">0%</b></span><div class="pat" style="height:6px;background:rgba(255,255,255,.12);border-radius:4px;overflow:hidden"><i id="mSb" style="display:block;height:100%;width:0;background:#d2462e"></i></div></div>
+      <div class="meterRow"><span><span>Cheese</span><b id="mC">0%</b></span><div class="pat" style="height:6px;background:rgba(255,255,255,.12);border-radius:4px;overflow:hidden"><i id="mCb" style="display:block;height:100%;width:0;background:#f3d36b"></i></div></div>
+      <div class="row"><button class="pink" id="bOven" ${p?"":"disabled"}>Send to oven</button><button id="bDough" ${p?"disabled":""}>Grab dough</button><button id="bToss" ${p?"":"disabled"}>Toss</button></div>`;
+    $("bOven").onclick=sendToOven; $("bDough").onclick=grabDough; $("bToss").onclick=tossPizza;
+  } else if(st==="bake"){
+    el.innerHTML=`<h3>Ovens</h3>`+G.ovens.map((o,i)=>o?`<div class="meterRow"><span><span>${i+1}: ${o.ticket.name} · ${BAKE[o.ticket.bake].label}</span><b id="ob${i}"></b></span>
+      <div class="gauge"><b style="left:${(BAKE[o.ticket.bake].t-.05)*100}%;width:10%"></b><i id="on${i}"></i></div></div><button class="pink" id="bOut${i}">Take out of oven ${i+1}</button>`
+      :`<p>Oven ${i+1} is empty.</p>`).join("")+`<p>Pull each pie out when the needle sits in the green box.</p>`;
+    G.ovens.forEach((o,i)=>{ if(o) $("bOut"+i).onclick=()=>takeOut(i); });
+  } else if(st==="cut"){
+    el.innerHTML=cp?`<h3>Cut</h3><p>${cp.ticket.name} wants <b style="color:var(--cream)">${cp.ticket.slices} slices</b>. Pinch and drag straight across the centre ${cp.ticket.slices/2} times.</p>
+      <p id="cutN"></p><div class="row"><button class="big pink" id="bServe" ${cp.cuts.length?"":"disabled"}>Serve ${cp.ticket.name}</button></div>${G.cutQueue.length>1?`<p>${G.cutQueue.length-1} more pie waiting.</p>`:""}`
+      :`<h3>Cut</h3><p>No pies on the board. Take one out of the oven first.</p>`;
+    if(cp) $("bServe").onclick=serve;
+  }
+  updateCtx();
+}
+function updateCtx(){
+  if(G.station==="build"){ const p=G.buildPizza, t=G.buildPizza?.ticket||G.sel;
+    const tx=$("bText"); if(tx) tx.textContent=p?"Pinch the sauce, then paint the pie. Same for cheese. Pinch a topping tray, then pinch on the pie to drop pieces.":t?`Grab dough to start ${t.name}’s pie.`:"No open tickets. Take an order first.";
+    const s=p?coverage(p.sauce):0, c=p?coverage(p.cheese):0; if($("mS")){ $("mS").textContent=Math.round(s*100)+"%"; $("mSb").style.width=s*100+"%"; $("mC").textContent=Math.round(c*100)+"%"; $("mCb").style.width=c*100+"%"; } }
+  if(G.station==="bake") G.ovens.forEach((o,i)=>{ if(o&&$("on"+i)){ $("on"+i).style.left=Math.min(100,o.bake*100)+"%"; const d=o.bake-BAKE[o.ticket.bake].t; $("ob"+i).textContent=d<-.05?"baking":d<=.05?"READY":"burning!"; } });
+  if(G.station==="cut"&&$("cutN")){ const p=G.cutQueue[0]; $("cutN").textContent=`Cuts made: ${p.cuts.length} of ${p.ticket.slices/2}`; }
+}
+function updateBadges(){
+  const set=(st,n,hot)=>{ const b=document.querySelector(`#tabs [data-st="${st}"] .badge`); b.hidden=!n; b.textContent=n; b.classList.toggle("hot",!!hot); };
+  set("order",G.queue.filter(c=>c.state==="atReg").length,true);
+  set("build",G.tickets.filter(t=>!t.pizza).length+(G.buildPizza?1:0),false);
+  const ready=G.ovens.filter(o=>o&&o.bake>=BAKE[o.ticket.bake].t-.05).length;
+  set("bake",ready||G.ovens.filter(Boolean).length,ready>0);
+  set("cut",G.cutQueue.length,G.cutQueue.length>0);
+  document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.st===G.station));
+}
+function hintText(s){ $("hint").textContent=s; }
+function computeHint(){
+  if(G.paused) return "";
+  const st=G.station, p=G.buildPizza;
+  const ready=G.ovens.findIndex(o=>o&&o.bake>=BAKE[o.ticket.bake].t-.04);
+  if(ready>=0&&st!=="bake") return `Oven ${ready+1} is ready. Head to Bake.`;
+  if(st==="order") return G.queue[0]?.state==="atReg"?"Pinch the gold bell (or the Take order button) to take the order.":G.tickets.some(t=>!t.pizza)?"Go to Build and start the next pie.":"";
+  if(st==="build"){
+    if(!p) return G.tickets.some(t=>!t.pizza)?"Pinch the dough box to start a pie.":"Take an order at the window first.";
+    if(coverage(p.sauce)<.6) return G.tool==="sauce"?"Hold the pinch and sweep across the pie to spread sauce.":"Pinch the sauce bowl.";
+    if(coverage(p.cheese)<.6) return G.tool==="cheese"?"Hold the pinch and sweep to cover it with cheese.":"Now pinch the cheese bowl.";
+    return "Pinch a topping tray, then pinch on the pie where the ticket shows. Hold to sprinkle. Then Send to oven.";
+  }
+  if(st==="bake") return G.ovens.some(Boolean)?"Watch the needle. Take each pie out in the green zone.":"Ovens are empty. Build a pie first.";
+  if(st==="cut") return G.cutQueue[0]?(G.cutQueue[0].cuts.length<G.cutQueue[0].ticket.slices/2?"Pinch beside the pie and drag straight across the middle.":"Looks sliced. Hit Serve."):"";
+  return "";
+}
+let toastT=0; function toast(s){ G.vrToast={s,t:performance.now()}; const t=$("toast"); t.textContent=s; t.classList.remove("go"); void t.offsetWidth; t.classList.add("go"); }
+function toolName(id){ return id==="sauce"?"SAUCE":id==="cheese"?"CHEESE":TOP[id]?TOP[id].name.toUpperCase():""; }
+
+/* score card and day summary */
+function showScore(name,s,total,stars,tip){
+  G.paused=true; G.lastScore={name,s,total,stars,tip,quote:QUOTES.find(q=>total>=q[0])[1]}; $("scName").textContent=`${name}’s verdict · ${total}%`;
+  $("scRows").innerHTML=[["Waiting",s.wait],["Building",s.build],["Baking",s.bake],["Cutting",s.cut]].map(([k,v])=>`<div class="sRow"><span>${k}</span><div class="bar"><i data-w="${v}"></i></div><b>${v}</b></div>`).join("");
+  $("scStars").innerHTML="<b>"+"★".repeat(stars)+"</b>"+"★".repeat(3-stars);
+  $("scQuote").textContent=`“${QUOTES.find(q=>total>=q[0])[1]}”`; $("scTip").textContent="TIP "+money(tip);
+  $("scoreCard").hidden=false; requestAnimationFrame(()=>document.querySelectorAll("#scRows i").forEach(i=>i.style.width=i.dataset.w+"%"));
+  if(stars>=2) SFX.star(); else if(stars===0) SFX.sad();
+}
+$("scNext").onclick=()=>{
+  $("scoreCard").hidden=true; G.paused=false;
+  const c=G.customers.find(x=>x.state==="pickup"); if(c){ c.state="leaving"; goTo(c,[V3(1.2,0,-2.6),DOOR],()=>c.state="gone"); }
+  if(G.day.served>=G.day.total) setTimeout(endDay,900);
+};
+function endDay(){
+  G.paused=true; const d=G.day, avg=d.scores.length?Math.round(d.scores.reduce((a,b)=>a+b,0)/d.scores.length):0;
+  const r=rankOf(SAVE.xp), lo=RANKS[r-1], hi=RANKS[r]||lo+1;
+  $("dsTitle").textContent=`Day ${SAVE.day} complete`; $("dsServed").textContent=d.served; $("dsAvg").textContent=avg+"%"; $("dsTips").textContent=money(d.tips);
+  $("dsRank").textContent=`Rank ${r} · ${RANK_NAMES[r-1]}`; $("dsXp").textContent=`${SAVE.xp} / ${RANKS[r]||"max"} pts`;
+  $("rankBar2").querySelector("i").style.width=Math.min(100,(SAVE.xp-lo)/(hi-lo)*100)+"%";
+  const newT=TOPPINGS.filter(t=>t.rank>d.rankStart&&t.rank<=r);
+  $("dsUnlock").innerHTML=r>d.rankStart?`<div class="unlock">Promoted to ${RANK_NAMES[r-1]}!${newT.length?` New topping${newT.length>1?"s":""}: ${newT.map(t=>t.name).join(", ")}.`:""}</div>`:"";
+  $("dsNext").textContent=`Open day ${SAVE.day+1}`; $("daySum").hidden=false; SFX.star();
+  G.lastDay={day:SAVE.day,served:d.served,avg,tips:d.tips,rank:r,unlock:$("dsUnlock").textContent};
+}
+$("dsNext").onclick=()=>{ SAVE.day++; store.set("save",SAVE); $("daySum").hidden=true; startDay(); };
+function tameReflections(root=scene){ root.traverse(o=>{ if(o.isMesh&&o.material&&'envMapIntensity' in o.material) o.material.envMapIntensity=o.material.metalness>.8?.7:.22; }); }
+function startDay(){
+  for(const c of G.customers) scene.remove(c.g);
+  for(const p of [G.buildPizza,...G.ovens,...G.cutQueue]) if(p) scene.remove(p.g);
+  Object.assign(G,{tickets:[],sel:null,buildPizza:null,ovens:[null,null],cutQueue:[],customers:[],queue:[],waitUsed:[],tool:null,paused:false});
+  const roster=[...CUSTOMERS].sort(()=>Math.random()-.5);
+  G.day={total:Math.min(3+SAVE.day,8),spawned:0,served:0,tips:0,scores:[],next:T+2.5,roster,rankStart:rankOf(SAVE.xp)};
+  buildTrays(); tameReflections(); setStation("order"); railSig=ctxSig=""; updateTop(); toast(`Day ${SAVE.day}: doors open!`);
+}
+function updateDay(){
+  const d=G.day; if(!d||G.paused) return;
+  if(d.spawned<d.total&&T>=d.next&&G.queue.length<3){ spawnCustomer(d.roster[d.spawned%d.roster.length]); d.spawned++; d.next=T+Math.max(20,rnd(36,48)-SAVE.day*2.5); }
+  if(d.spawned<d.total&&!G.queue.length&&!G.tickets.length) d.next=Math.min(d.next,T+3);
+}
+function updateTop(){
+  const r=rankOf(SAVE.xp), lo=RANKS[r-1], hi=RANKS[r]||lo+1;
+  $("daySub").textContent=`DAY ${SAVE.day} · RANK ${r} ${RANK_NAMES[r-1].toUpperCase()}`;
+  $("sServed").textContent=G.day?`${G.day.served}/${G.day.total}`:"0/0"; $("sTips").textContent=money(G.day?G.day.tips:0); $("sRank").textContent=r;
+  $("rankBar").querySelector("i").style.width=Math.min(100,(SAVE.xp-lo)/(hi-lo)*100)+"%";
+}
+
+/* =========================================================
+   Camera and stations
+   ========================================================= */
+const VIEWS={order:{pos:V3(0,1.6,.35),look:V3(0,1.12,-3)},build:{pos:V3(.08,1.5,0),look:V3(.95,.86,0)},bake:{pos:V3(0,1.74,.08),look:V3(0,.95,1.3)},cut:{pos:V3(-.08,1.5,0),look:V3(-.95,.86,0)}};
+const camPos=VIEWS.order.pos.clone(), camLook=VIEWS.order.look.clone();
+function setStation(st){ if(G.station!==st) SFX.click(); G.station=st; ctxSig=""; bigSig=""; G.cutDrag=null; if(vrOn) placeRig(); }
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>setStation(b.dataset.st));
+addEventListener("keydown",e=>{ const m={"1":"order","2":"build","3":"bake","4":"cut"}[e.key]; if(m) setStation(m); });
+
+/* =========================================================
+   Interaction: buttons by hover or pinch, 3D by raycast
+   ========================================================= */
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+let hoverEl=null, hoverSince=0, dwellFired=false, hover3D=null;
+const cutLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(0,0,0),V3(0,0,0)]),new THREE.LineBasicMaterial({color:0xffffff,toneMapped:false}));
+cutLine.material.color.setScalar(2); cutLine.visible=false; scene.add(cutLine);
+function stationTargets(){
+  if(G.station==="order") return [bell.userData.dome];
+  if(G.station==="build") return [...trays.filter(t=>!t.locked).map(t=>t.tray),...sauceBowl,...cheeseBowl,...doughBox.children.filter(o=>o.userData.action)];
+  if(G.station==="bake") return ovenMouth;
+  return [cutPlane];
+}
+function interact(){
+  P.pressed=P.down&&!P.wasDown; P.released=!P.down&&P.wasDown; P.wasDown=P.down;
+  if(!P.seen) return 0;
+  const overlayOpen=!$("intro").hidden||!$("scoreCard").hidden||!$("daySum").hidden;
+  let el=null;
+  if(P.mode==="hand"){ const e=document.elementFromPoint(P.x,P.y); el=e&&e.closest?e.closest("button:not(:disabled)"):null; }
+  if(el!==hoverEl){ hoverEl?.classList.remove("hover"); hoverEl=el; hoverSince=performance.now(); dwellFired=false; el?.classList.add("hover"); }
+  if(el){ if(P.pressed){ el.click(); dwellFired=true; return 0; }
+    if(!dwellFired&&!P.down){ const d=(performance.now()-hoverSince)/1000; if(d>=1.05){ el.click(); dwellFired=true; return 0; } return d/1.05; } return 0; }
+  if(overlayOpen||G.paused) return 0;
+  ndc.set(P.x/innerWidth*2-1,-(P.y/innerHeight)*2+1); ray.setFromCamera(ndc,camera);
+  const hit=ray.intersectObjects(stationTargets(),false)[0];
+  const obj=hit&&G.station!=="cut"?hit.object:null;
+  if(hover3D!==obj){ if(hover3D?.userData.hl) hover3D.userData.hl.emissiveIntensity=0; hover3D=obj; if(obj?.userData.hl) obj.userData.hl.emissiveIntensity=obj.userData.action==="order"?.6:.45; }
+  if(G.station==="order"&&P.pressed&&obj) takeOrder();
+  if(G.station==="bake"&&P.pressed&&obj){ const i=+obj.userData.action.split(":")[1]; G.ovens[i]?takeOut(i):toast(`Oven ${i+1} is empty`); }
+  if(G.station==="build"){
+    if(P.pressed&&obj){ const a=obj.userData.action; if(a.startsWith("tool:")){ G.tool=a.slice(5); SFX.pick(); return 0; } if(a==="dough"){ grabDough(); return 0; } }
+    const p=G.buildPizza;
+    if(p&&G.tool&&P.down){ const ph=ray.intersectObject(p.top,false)[0];
+      if(ph){ const L=p.g.worldToLocal(ph.point.clone());
+        if(G.tool==="sauce"||G.tool==="cheese"){ if(!G.lastPaint||Math.hypot(L.x-G.lastPaint.x,L.z-G.lastPaint.z)>.008){ if(G.lastPaint){ const n=Math.ceil(Math.hypot(L.x-G.lastPaint.x,L.z-G.lastPaint.z)/.012); for(let k=1;k<=n;k++) paintAt(p,G.tool,G.lastPaint.x+(L.x-G.lastPaint.x)*k/n,G.lastPaint.z+(L.z-G.lastPaint.z)*k/n); } else paintAt(p,G.tool,L.x,L.z); G.lastPaint=L; if(Math.random()<.3) SFX.squish(); } }
+        else if(P.pressed||(G.lastDrop&&Math.hypot(L.x-G.lastDrop.x,L.z-G.lastDrop.z)>.05)){ if(placeTopping(p,G.tool,L.x,L.z)){ G.lastDrop=L; SFX.plop(); } } } }
+  }
+  if(G.station==="cut"){
+    const p=G.cutQueue[0];
+    if(p&&hit){ const L=p.g.worldToLocal(hit.point.clone());
+      if(P.pressed) G.cutDrag={a:L};
+      if(G.cutDrag){ const A=p.g.localToWorld(V3(G.cutDrag.a.x,.02,G.cutDrag.a.z)), B=p.g.localToWorld(V3(L.x,.02,L.z)); cutLine.geometry.setFromPoints([A,B]); cutLine.visible=true; }
+      if(P.released&&G.cutDrag){ addCut(p,G.cutDrag.a,L); G.cutDrag=null; cutLine.visible=false; } }
+    if(!P.down&&G.cutDrag&&!hit){ G.cutDrag=null; cutLine.visible=false; }
+  }
+  if(P.released){ G.lastPaint=null; G.lastDrop=null; }
+  return 0;
+}
+
+/* =========================================================
+   Main loop
+   ========================================================= */
+const composer=new EffectComposer(renderer); composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.7,.45,1.5); composer.addPass(bloom); composer.addPass(new OutputPass());
+function resize(){ renderer.setSize(innerWidth,innerHeight,false); composer.setSize(innerWidth,innerHeight); camera.aspect=innerWidth/innerHeight; camera.fov=innerWidth<innerHeight?78:62; camera.updateProjectionMatrix();
+  hc.width=innerWidth*Math.min(2,devicePixelRatio||1); hc.height=innerHeight*Math.min(2,devicePixelRatio||1); hctx.setTransform(Math.min(2,devicePixelRatio||1),0,0,Math.min(2,devicePixelRatio||1),0,0); }
+addEventListener("resize",resize);
+let prev=performance.now(), uiT=0;
+const mtx=new THREE.Matrix4();
+function frame(now){
+  const dt=Math.min(.1,(now-prev)/1000); prev=now; const t=now/1000;
+  if(!G.paused) T+=dt;
+  const xr=renderer.xr.isPresenting; const dwell=vrOn?0:interact(); if(xr) xrInteract();
+  if(!G.paused){ updateDay(); }
+  updateCustomers(G.paused?dt*.5:dt);
+  // ovens bake whether or not you're watching
+  G.ovens.forEach((p,i)=>{ ovenGlow[i].intensity=p?.55+Math.sin(t*7+i)*.08:0; ovenMouth[i].material.emissiveIntensity=p?.6:.05; if(!p||G.paused) return;
+    p.bake+=dt/34; setBakeLook(p); const tg=BAKE[p.ticket.bake].t;
+    if(!p.dinged&&p.bake>=tg-.02){ p.dinged=true; SFX.ding(); toast(`Oven ${i+1} ready!`); }
+    if(!p.warned&&p.bake>tg+.16){ p.warned=true; SFX.warn(); toast(`Oven ${i+1} is burning!`); } });
+  // pop-in for pizzas and toppings
+  for(const p of [G.buildPizza,...G.ovens,G.cutQueue[0]]) if(p){ if(p.pop>0){ p.pop=Math.max(0,p.pop-dt*5); p.g.scale.setScalar(1+Math.sin(p.pop*Math.PI)*.08); }
+    for(const q of p.pieces) if(q.grow<1){ q.grow=Math.min(1,q.grow+dt*8); q.m.scale.setScalar(.2+.8*q.grow+Math.sin(q.grow*Math.PI)*.25); } }
+  // sparks
+  let n=0; for(let i=sparks.length-1;i>=0;i--){ const s=sparks[i]; s.life-=dt*1.6; if(s.life<=0){ sparks.splice(i,1); continue; } s.v.y-=2.5*dt; s.p.addScaledVector(s.v,dt); mtx.makeScale(s.life,s.life,s.life).setPosition(s.p); sparkMesh.setMatrixAt(n++,mtx); }
+  sparkMesh.count=n; sparkMesh.instanceMatrix.needsUpdate=true;
+  // camera glides between stations
+  const v=VIEWS[G.station], k=1-Math.exp(-dt*6); camPos.lerp(v.pos,k); camLook.lerp(v.look,k);
+  if(!vrOn){ camera.position.copy(camPos); camera.position.y+=Math.sin(t*1.1)*.004; camera.lookAt(camLook); }
+  else if(!xr){ camera.position.set(0,1.62,0); camera.rotation.set(-.32,0,0); }
+  if(scene.userData.jukebox) scene.userData.jukebox.material.color.setScalar(1.2+Math.sin(t*4)*.3);
+  if(xr) renderer.render(scene,camera); else composer.render(); drawHand(dwell);
+  uiT+=dt; if(uiT>.12){ uiT=0; renderRail(); renderCtx(); renderBigTicket(); updateBadges(); updateTop(); hintText(computeHint());
+    $("tool").textContent=G.station==="build"&&G.tool?`Holding: ${toolName(G.tool)}`:"";
+    const ch=$("chipHand"); ch.classList.toggle("on",P.seen); ch.querySelector("span").textContent=P.seen?(P.down?"Pinching":"Hand found"):"Show your hand";
+    if(vrOn) vrUpdatePanels(); }
+}
+
+
+/* =========================================================
+   VR mode (WebXR): the same diner, played with headset hands or controllers.
+   You snap between four standing spots; floating neon panels replace the screen HUD.
+   ========================================================= */
+const STAND={order:{pos:V3(0,0,-.15),yaw:0},build:{pos:V3(.42,0,0),yaw:-Math.PI/2},bake:{pos:V3(0,0,.72),yaw:Math.PI},cut:{pos:V3(-.42,0,0),yaw:Math.PI/2}};
+let vrOn=false, vrOverlay=null, vrPreview=false;
+function placeRig(){ const s=STAND[G.station]; rig.position.copy(s.pos); rig.rotation.set(0,s.yaw,0); }
+function vrRR(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+function wrapText(c,text,x,y,maxW,lh){ let line=""; for(const w of String(text).split(" ")){ const t=line?line+" "+w:w; if(c.measureText(t).width>maxW&&line){ c.fillText(line,x,y); y+=lh; line=w; } else line=t; } if(line) c.fillText(line,x,y); return y+lh; }
+class Panel{
+  constructor(wm,hm,pw,ph,pos,rotY=0){
+    this.cv=document.createElement("canvas"); this.cv.width=pw; this.cv.height=ph; this.c=this.cv.getContext("2d");
+    this.tex=new THREE.CanvasTexture(this.cv); this.tex.colorSpace=THREE.SRGBColorSpace; this.pw=pw; this.ph=ph; this.btns=[]; this.hover=null;
+    this.mesh=new THREE.Mesh(new THREE.PlaneGeometry(wm,hm),new THREE.MeshBasicMaterial({map:this.tex,transparent:true,toneMapped:false}));
+    this.mesh.position.copy(pos); this.mesh.rotation.y=rotY; this.mesh.renderOrder=10; this.mesh.visible=false; this.mesh.userData.panel=this; rig.add(this.mesh);
+  }
+  begin(){ this.c.clearRect(0,0,this.pw,this.ph); this.btns=[]; return this.c; }
+  end(){ this.tex.needsUpdate=true; }
+  bg(border="#ff4fa3"){ const c=this.c; vrRR(c,6,6,this.pw-12,this.ph-12,34); c.fillStyle="rgba(18,11,38,.93)"; c.fill(); c.lineWidth=6; c.strokeStyle=border; c.shadowColor=border; c.shadowBlur=20; c.stroke(); c.shadowBlur=0; }
+  btn(x,y,w,h,label,fn,{on=true,accent="#39e6ff",size=30,active=false,id=label}={}){
+    const c=this.c, hov=this.hover===id&&on; this.btns.push({x,y,w,h,id,fn,on});
+    c.save(); c.globalAlpha=on?1:.32; vrRR(c,x,y,w,h,18); c.fillStyle=active?accent:hov?"rgba(57,230,255,.28)":"rgba(255,255,255,.07)"; c.fill();
+    c.lineWidth=4; c.strokeStyle=accent; c.shadowColor=accent; c.shadowBlur=hov?22:8; c.stroke(); c.shadowBlur=0;
+    c.fillStyle=active?"#120b26":"#fff3e0"; c.font=`700 ${size}px Rubik, sans-serif`; c.textAlign="center"; c.textBaseline="middle"; c.fillText(label,x+w/2,y+h/2+1); c.restore();
+  }
+  area(x,y,w,h,id,fn){ this.btns.push({x,y,w,h,id,fn,on:true}); }
+  at(uv){ const x=uv.x*this.pw, y=(1-uv.y)*this.ph; return this.btns.find(b=>b.on&&x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h)||null; }
+}
+const mainP=new Panel(.6,.445,1024,760,V3(-.56,1.36,-.6),.75);
+const ticketP=new Panel(.92,.25,1500,408,V3(.14,1.62,-.82),0);
+const overP=new Panel(.74,.53,1024,740,V3(0,1.42,-.6),0);
+const toastP=new Panel(.62,.08,1024,132,V3(.14,1.45,-.8),0);
+const ALL_PANELS=[mainP,ticketP,overP,toastP];
+const tkCanvas=document.createElement("canvas"); tkCanvas.width=tkCanvas.height=260;
+const sTkCanvas=document.createElement("canvas"); sTkCanvas.width=sTkCanvas.height=180;
+function gauge(c,x,y,w,h,o){
+  const g=c.createLinearGradient(x,0,x+w,0); [["#f7e6c4",0],["#e9b366",.35],["#c97a32",.55],["#8d4a1f",.75],["#2b160b",1]].forEach(([col,s])=>g.addColorStop(s,col));
+  vrRR(c,x,y,w,h,h/2); c.fillStyle=g; c.fill();
+  const tg=BAKE[o.ticket.bake].t; c.lineWidth=4; c.strokeStyle="#7cf5c8"; c.shadowColor="#7cf5c8"; c.shadowBlur=12; vrRR(c,x+(tg-.05)*w,y-6,w*.1,h+12,8); c.stroke(); c.shadowBlur=0;
+  c.fillStyle="#fff"; c.fillRect(x+Math.min(1,o.bake)*w-3,y-10,6,h+20);
+}
+function drawMain(){
+  const P_=mainP, c=P_.begin(); P_.bg();
+  c.textBaseline="alphabetic"; c.textAlign="left"; c.font="64px Yellowtail, cursive"; c.fillStyle="#ff4fa3"; c.shadowColor="#ff4fa3"; c.shadowBlur=14; c.fillText("Neon Crust",34,86); c.shadowBlur=0;
+  const r=rankOf(SAVE.xp); c.font="400 24px Bungee, sans-serif"; c.fillStyle="#ffd23f"; c.textAlign="right";
+  c.fillText(`DAY ${SAVE.day}  ·  ${G.day?G.day.served:0}/${G.day?G.day.total:0} SERVED  ·  ${money(G.day?G.day.tips:0)}  ·  RANK ${r}`,990,78);
+  // active ticket
+  const t=activeTicket()||G.sel;
+  c.textAlign="left";
+  if(t){ vrRR(c,28,112,310,500,18); c.fillStyle="#fffaf0"; c.fill();
+    c.fillStyle="#2a2340"; c.font="700 28px Rubik, sans-serif"; c.fillText(`${t.name}’s order`,46,152);
+    drawTicketPizza(tkCanvas,t); c.drawImage(tkCanvas,53,166,260,260);
+    c.font="600 21px Rubik, sans-serif"; let y=456;
+    for(const e of t.entries){ c.fillText(`${TOP[e.t].name}`,46,y); c.textAlign="right"; c.fillText(`${e.count} · ${REGION_LABEL[e.region]}`,322,y); c.textAlign="left"; y+=30; }
+    c.fillText("Bake",46,y); c.textAlign="right"; c.fillText(BAKE[t.bake].label,322,y); c.textAlign="left"; y+=30;
+    c.fillText("Cut",46,y); c.textAlign="right"; c.fillText(`${t.slices} slices`,322,y); c.textAlign="left";
+  } else { c.font="600 26px Rubik, sans-serif"; c.fillStyle="#b9add6"; wrapText(c,"No ticket yet. Take an order at the window.",40,170,290,36); }
+  // station controls
+  const X=370, st=G.station; c.font="400 38px Bungee, sans-serif"; c.fillStyle="#39e6ff"; c.shadowColor="#39e6ff"; c.shadowBlur=12;
+  c.fillText({order:"ORDER WINDOW",build:"BUILD",bake:"OVENS",cut:"CUT"}[st],X,160); c.shadowBlur=0;
+  c.font="500 26px Rubik, sans-serif"; c.fillStyle="#e8def8";
+  if(st==="order"){ const reg=G.queue[0], atReg=reg&&reg.state==="atReg";
+    wrapText(c,atReg?`${reg.def.name} is at the window. Ring the gold bell or press below.`:G.queue.length?"Someone is walking up…":"Quiet for now. The next guest is on the way.",X,210,600,36);
+    P_.btn(X,330,320,90,"Take order",takeOrder,{on:!!atReg,accent:"#ff4fa3",size:34}); }
+  if(st==="build"){ const p=G.buildPizza;
+    wrapText(c,p?"Pinch a bowl, then paint the pie. Pinch a tray, then pinch over the pie to drop pieces.":(t&&!t.pizza?`Pinch the dough box to start ${t.name}’s pie.`:"Take an order first."),X,210,600,34);
+    const s=p?coverage(p.sauce):0, ch=p?coverage(p.cheese):0;
+    for(const [lab,v,col,y] of [["Sauce",s,"#d2462e",300],["Cheese",ch,"#f3d36b",350]]){ c.fillStyle="#b9add6"; c.font="600 22px Rubik"; c.fillText(lab,X,y); c.textAlign="right"; c.fillText(Math.round(v*100)+"%",X+600,y); c.textAlign="left";
+      vrRR(c,X,y+8,600,12,6); c.fillStyle="rgba(255,255,255,.12)"; c.fill(); if(v>0){ vrRR(c,X,y+8,600*v,12,6); c.fillStyle=col; c.fill(); } }
+    if(G.tool){ c.font="400 24px Bungee"; c.fillStyle="#ffd23f"; c.fillText("HOLDING: "+toolName(G.tool),X,410); }
+    P_.btn(X,440,200,80,"Grab dough",grabDough,{on:!p}); P_.btn(X+212,440,220,80,"Send to oven",sendToOven,{on:!!p,accent:"#ff4fa3"}); P_.btn(X+444,440,156,80,"Toss",tossPizza,{on:!!p}); }
+  if(st==="bake"){ G.ovens.forEach((o,i)=>{ const y=200+i*160; c.font="600 24px Rubik"; c.fillStyle="#e8def8";
+      if(o){ const d=o.bake-BAKE[o.ticket.bake].t; c.fillText(`Oven ${i+1}: ${o.ticket.name} · ${BAKE[o.ticket.bake].label}`,X,y); c.textAlign="right"; c.fillStyle=d<-.05?"#b9add6":d<=.05?"#7cf5c8":"#ff4fa3"; c.fillText(d<-.05?"baking":d<=.05?"READY":"burning!",X+600,y); c.textAlign="left";
+        gauge(c,X,y+18,600,22,o); P_.btn(X,y+56,300,66,`Take out ${i+1}`,()=>takeOut(i),{accent:"#ff4fa3",size:28}); }
+      else { c.fillStyle="#b9add6"; c.fillText(`Oven ${i+1} is empty.`,X,y); } }); }
+  if(st==="cut"){ const p=G.cutQueue[0];
+    if(p){ wrapText(c,`${p.ticket.name} wants ${p.ticket.slices} slices. Pinch beside the pie and drag straight across the centre ${p.ticket.slices/2} times.`,X,210,600,34);
+      c.font="400 28px Bungee"; c.fillStyle="#ffd23f"; c.fillText(`CUTS ${p.cuts.length} / ${p.ticket.slices/2}`,X,370);
+      P_.btn(X,400,330,90,`Serve ${p.ticket.name}`,serve,{on:p.cuts.length>0,accent:"#ff4fa3",size:32}); }
+    else wrapText(c,"No pies on the board. Take one out of the oven first.",X,210,600,34); }
+  // hint + station switcher
+  const h=computeHint(); if(h){ c.font="600 22px Rubik"; c.fillStyle="#fff3e0"; wrapText(c,h,X,560,600,30); }
+  const counts={order:G.queue.filter(q=>q.state==="atReg").length,build:G.tickets.filter(x=>!x.pizza).length+(G.buildPizza?1:0),bake:G.ovens.filter(Boolean).length,cut:G.cutQueue.length};
+  ["order","build","bake","cut"].forEach((s,i)=>{ const x=28+i*244; P_.btn(x,640,232,92,s[0].toUpperCase()+s.slice(1),()=>setStation(s),{active:G.station===s,size:32,id:"st:"+s});
+    if(counts[s]){ c.fillStyle="#ff4fa3"; c.beginPath(); c.arc(x+222,648,22,0,7); c.fill(); c.fillStyle="#fff"; c.font="700 24px Rubik"; c.textAlign="center"; c.textBaseline="middle"; c.fillText(counts[s],x+222,649); c.textAlign="left"; c.textBaseline="alphabetic"; } });
+  P_.end();
+}
+function drawTickets(){
+  const P_=ticketP, c=P_.begin();
+  if(!G.tickets.length){ vrRR(c,450,140,600,110,24); c.fillStyle="rgba(18,11,38,.85)"; c.fill(); c.font="600 30px Rubik"; c.fillStyle="#b9add6"; c.textAlign="center"; c.textBaseline="middle"; c.fillText("No tickets on the rail yet",750,196); P_.end(); return; }
+  vrRR(c,8,14,1484,380,22); c.fillStyle="#22262f"; c.fill(); c.lineWidth=5; c.strokeStyle="#9aa3b5"; c.stroke();
+  G.tickets.slice(0,6).forEach((t,i)=>{ const x=26+i*244, y=34, w=228, h=340, sel=G.sel===t;
+    c.save(); c.translate(x+w/2,y+h/2); c.rotate((i%2?1:-1)*.012); c.translate(-(x+w/2),-(y+h/2));
+    vrRR(c,x,y,w,h,10); c.fillStyle="#fffaf0"; c.fill(); if(sel){ c.lineWidth=8; c.strokeStyle="#ffd23f"; c.shadowColor="#ffd23f"; c.shadowBlur=20; c.stroke(); c.shadowBlur=0; }
+    c.fillStyle="#2a2340"; c.font="700 26px Rubik"; c.textAlign="left"; c.textBaseline="alphabetic"; c.fillText(t.name,x+14,y+38); c.textAlign="right"; c.fillText("#"+t.id,x+w-14,y+38);
+    drawTicketPizza(sTkCanvas,t); c.drawImage(sTkCanvas,x+24,y+50,180,180);
+    c.font="700 22px Rubik"; c.textAlign="left"; c.fillText(bakeShort(t.bake),x+14,y+262); c.textAlign="right"; c.fillText(`${t.slices} SLICES`,x+w-14,y+262);
+    const f=Math.min(1,(T-t.orderedAt)/(80+25*t.entries.length*2.6)); vrRR(c,x+14,y+282,w-28,12,6); c.fillStyle="#e6dccb"; c.fill();
+    vrRR(c,x+14,y+282,(w-28)*(1-f)+.1,12,6); c.fillStyle=f<.5?"#3bbf7a":f<.8?"#e8a23a":"#d9443a"; c.fill();
+    const st=t.pizza?{build:"BUILD",oven:"OVEN",cut:"CUT"}[t.pizza.stage]:""; if(st){ vrRR(c,x+w-96,y+300,84,30,8); c.fillStyle="#ff4fa3"; c.fill(); c.fillStyle="#fff"; c.font="400 18px Bungee"; c.textAlign="center"; c.fillText(st,x+w-54,y+322); }
+    c.restore();
+    P_.area(x,y,w,h,"tk:"+t.id,()=>{ G.sel=t; SFX.click(); if(!t.pizza&&G.station!=="build") setStation("build"); });
+  });
+  P_.end();
+}
+function drawOverlay(){
+  const P_=overP, scoreOpen=!$("scoreCard").hidden, dayOpen=!$("daySum").hidden, mode=vrOverlay||(scoreOpen?"score":dayOpen?"day":null);
+  P_.mesh.visible=!!mode; if(!mode) return;
+  const c=P_.begin(); P_.bg(mode==="score"?"#39e6ff":"#ff4fa3"); c.textAlign="center"; c.textBaseline="alphabetic";
+  if(mode==="howto"){
+    c.font="80px Yellowtail"; c.fillStyle="#ff4fa3"; c.shadowColor="#ff4fa3"; c.shadowBlur=18; c.fillText("Neon Crust VR",512,110); c.shadowBlur=0;
+    c.font="500 27px Rubik"; c.fillStyle="#e8def8"; c.textAlign="left";
+    let y=180; for(const line of ["Hands: pinch thumb and index to grab or press. Controllers: pull the trigger.",
+      "Reach and pinch a bowl or tray to pick it up, then pinch over the pie to paint sauce and cheese or drop toppings.",
+      "Point at a panel and pinch to press its buttons. The station buttons snap you to Order, Build, Bake or Cut.",
+      "To slice, pinch beside the pie and drag straight across the middle."]) y=wrapText(c,"• "+line,70,y,880,36)+8;
+    P_.btn(352,600,320,96,"Start the shift",()=>{ vrOverlay=null; G.paused=false; SFX.bell(); },{accent:"#ff4fa3",size:34});
+  } else if(mode==="score"&&G.lastScore){ const L=G.lastScore;
+    c.font="400 34px Bungee"; c.fillStyle="#39e6ff"; c.fillText(`${L.name.toUpperCase()}’S VERDICT · ${L.total}%`,512,90);
+    [["Waiting",L.s.wait],["Building",L.s.build],["Baking",L.s.bake],["Cutting",L.s.cut]].forEach(([k,v],i)=>{ const y=140+i*62; c.textAlign="left"; c.font="600 28px Rubik"; c.fillStyle="#fff3e0"; c.fillText(k,90,y+26);
+      vrRR(c,280,y+6,520,26,13); c.fillStyle="rgba(255,255,255,.1)"; c.fill(); vrRR(c,280,y+6,Math.max(26,520*v/100),26,13); c.fillStyle="#39e6ff"; c.fill();
+      c.textAlign="right"; c.font="400 30px Bungee"; c.fillStyle="#ffd23f"; c.fillText(v,940,y+30); });
+    c.textAlign="center"; c.font="80px sans-serif"; for(let i=0;i<3;i++){ c.fillStyle=i<L.stars?"#ffd23f":"rgba(255,255,255,.15)"; c.fillText("★",412+i*100,480); }
+    c.font="54px Yellowtail"; c.fillStyle="#fff3e0"; c.fillText(`“${L.quote}”`,512,560);
+    c.font="400 28px Bungee"; c.fillStyle="#39e6ff"; c.textAlign="left"; c.fillText("TIP "+money(L.tip),70,660);
+    P_.btn(700,600,250,90,"Next",()=>$("scNext").click(),{size:34});
+  } else if(mode==="day"&&G.lastDay){ const D=G.lastDay;
+    c.font="80px Yellowtail"; c.fillStyle="#ff4fa3"; c.fillText(`Day ${D.day} complete`,512,110);
+    [["SERVED",D.served],["AVG SCORE",D.avg+"%"],["TIPS",money(D.tips)]].forEach(([k,v],i)=>{ const x=110+i*280; vrRR(c,x,160,250,140,18); c.strokeStyle="rgba(57,230,255,.5)"; c.lineWidth=3; c.stroke();
+      c.font="400 46px Bungee"; c.fillStyle="#ffd23f"; c.fillText(v,x+125,235); c.font="600 22px Rubik"; c.fillStyle="#b9add6"; c.fillText(k,x+125,280); });
+    c.font="600 28px Rubik"; c.fillStyle="#fff3e0"; c.fillText(`Rank ${D.rank} · ${RANK_NAMES[D.rank-1]} · ${SAVE.xp} pts`,512,370);
+    if(D.unlock){ c.fillStyle="#7cf5c8"; wrapText(c,D.unlock,512,430,840,36); }
+    P_.btn(332,580,360,100,`Open day ${D.day+1}`,()=>$("dsNext").click(),{accent:"#ff4fa3",size:34});
+  }
+  P_.end();
+}
+function drawToast(){
+  const P_=toastP, v=G.vrToast, age=v?(performance.now()-v.t)/1000:9; P_.mesh.visible=age<1.8; if(!P_.mesh.visible) return;
+  const c=P_.begin(); c.globalAlpha=Math.min(1,(1.8-age)*2); vrRR(c,40,10,944,112,40); c.fillStyle="rgba(18,11,38,.9)"; c.fill(); c.lineWidth=4; c.strokeStyle="#ffd23f"; c.stroke();
+  c.font="400 46px Bungee"; c.fillStyle="#ffd23f"; c.textAlign="center"; c.textBaseline="middle"; c.fillText(v.s,512,68); c.globalAlpha=1; P_.end();
+}
+
+/* XR input: hands (pinch) or controllers (trigger), near touch and laser pointer */
+const handFactory=new XRHandModelFactory();
+const XI=[0,1].map(i=>{
+  const ctrl=renderer.xr.getController(i), grip=renderer.xr.getControllerGrip(i), hand=renderer.xr.getHand(i);
+  rig.add(ctrl,grip,hand);
+  const o={i,ctrl,grip,hand,src:null,down:false,was:false,evDown:false,pos:V3(0,0,0),lastPaint:null,lastDrop:null,cut:null};
+  hand.add(handFactory.createHandModel(hand,"spheres"));
+  const stick=new THREE.Mesh(new THREE.CylinderGeometry(.012,.016,.12,12).rotateX(Math.PI/2),new THREE.MeshStandardMaterial({color:0x39e6ff,emissive:0x39e6ff,emissiveIntensity:.5})); grip.add(stick); o.stick=stick;
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(0,0,0),V3(0,0,-1)]),new THREE.LineBasicMaterial({color:0xff4fa3,toneMapped:false,transparent:true,opacity:.75})); ctrl.add(line); o.line=line;
+  o.dot=new THREE.Mesh(new THREE.SphereGeometry(.007,10,8),new THREE.MeshBasicMaterial({color:0xffd23f,toneMapped:false})); o.dot.visible=false; scene.add(o.dot);
+  o.tip=new THREE.Mesh(new THREE.SphereGeometry(.011,12,10),new THREE.MeshBasicMaterial({color:0x39e6ff,toneMapped:false,transparent:true,opacity:.75})); o.tip.visible=false; scene.add(o.tip);
+  o.cutLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(),V3()]),new THREE.LineBasicMaterial({color:0xffffff,toneMapped:false})); o.cutLine.visible=false; scene.add(o.cutLine);
+  ctrl.addEventListener("connected",e=>{ o.src=e.data; stick.visible=!e.data.hand; });
+  ctrl.addEventListener("disconnected",()=>{ o.src=null; o.down=false; o.tip.visible=o.dot.visible=false; });
+  ctrl.addEventListener("selectstart",()=>{ o.evDown=true; }); ctrl.addEventListener("selectend",()=>{ o.evDown=false; });
+  return o;
+});
+const _a=V3(), _b=V3(), _q=new THREE.Quaternion(), _sph=new THREE.Sphere();
+function buzz(o,s=.4,ms=40){ try{ o.src?.gamepad?.hapticActuators?.[0]?.pulse(s,ms); }catch{} }
+function act(a){
+  if(a==="order") takeOrder(); else if(a==="dough") grabDough();
+  else if(a.startsWith("tool:")){ G.tool=a.slice(5); SFX.pick(); }
+  else if(a.startsWith("oven:")){ const i=+a.split(":")[1]; G.ovens[i]?takeOut(i):toast(`Oven ${i+1} is empty`); }
+}
+function applyToPizza(o,p,L){
+  if(G.tool==="sauce"||G.tool==="cheese"){
+    if(!o.lastPaint||Math.hypot(L.x-o.lastPaint.x,L.z-o.lastPaint.z)>.008){
+      if(o.lastPaint){ const n=Math.ceil(Math.hypot(L.x-o.lastPaint.x,L.z-o.lastPaint.z)/.012); for(let k=1;k<=n;k++) paintAt(p,G.tool,o.lastPaint.x+(L.x-o.lastPaint.x)*k/n,o.lastPaint.z+(L.z-o.lastPaint.z)*k/n); }
+      else paintAt(p,G.tool,L.x,L.z);
+      o.lastPaint=L.clone(); if(Math.random()<.25){ SFX.squish(); buzz(o,.15,15); } }
+  } else if(o.pressed||(o.lastDrop&&Math.hypot(L.x-o.lastDrop.x,L.z-o.lastDrop.z)>.05)){ if(placeTopping(p,G.tool,L.x,L.z)){ o.lastDrop=L.clone(); SFX.plop(); buzz(o,.3,25); } }
+}
+function xrInteract(){
+  const overlay=overP.mesh.visible, panels=ALL_PANELS.filter(p=>p.mesh.visible&&p!==toastP).map(p=>p.mesh);
+  for(const p of ALL_PANELS) p.hover=null;
+  for(const o of XI){
+    if(!o.src){ o.line.visible=false; continue; }
+    const isHand=!!o.src.hand;
+    // pointer position + pinch state
+    if(isHand){ const ti=o.hand.joints["index-finger-tip"], th=o.hand.joints["thumb-tip"];
+      if(ti&&th){ ti.getWorldPosition(_a); th.getWorldPosition(_b); const d=_a.distanceTo(_b); if(!o.down&&d<.018) o.down=true; else if(o.down&&d>.035) o.down=false; o.pos.copy(_a).add(_b).multiplyScalar(.5); }
+      else o.down=o.evDown;
+    } else { o.down=o.evDown; o.grip.getWorldPosition(o.pos); o.grip.getWorldQuaternion(_q); o.pos.add(V3(0,0,-.07).applyQuaternion(_q)); }
+    o.pressed=o.down&&!o.was; o.released=!o.down&&o.was; o.was=o.down;
+    o.tip.visible=true; o.tip.position.copy(o.pos); o.tip.material.color.set(o.down?0xff4fa3:0x39e6ff);
+    o.ctrl.getWorldPosition(_a); o.ctrl.getWorldQuaternion(_q); ray.set(_a,V3(0,0,-1).applyQuaternion(_q)); ray.far=4;
+    let lineLen=isHand?.35:1.6; o.dot.visible=false;
+    // 1) panels by laser
+    const ph=panels.length?ray.intersectObjects(panels,false)[0]:null;
+    const nearTarget=!overlay&&!G.paused?nearestTarget(o.pos):null;
+    const pizzaNear=!overlay&&!G.paused&&nearPizza(o);
+    if(ph&&!nearTarget&&!pizzaNear){ const pan=ph.object.userData.panel, b=pan.at(ph.uv); pan.hover=b?b.id:null;
+      o.dot.visible=true; o.dot.position.copy(ph.point); lineLen=ph.distance;
+      if(o.pressed&&b){ b.fn(); SFX.click(); buzz(o,.5,30); }
+      o.line.scale.z=lineLen; o.line.visible=true; continue; }
+    if(overlay||G.paused){ o.line.scale.z=lineLen; o.line.visible=true; continue; }
+    // 2) reach-and-pinch on bowls, trays, dough, bell, ovens
+    if(o.pressed&&nearTarget){ act(nearTarget.userData.action); buzz(o,.6,40); }
+    // 3) work on the pie (touch it, or point the laser at it)
+    if(G.station==="build"&&G.buildPizza&&G.tool&&o.down){ const p=G.buildPizza; let L=localOnPizza(p,o.pos,.09,1.05);
+      if(!L){ const h=ray.intersectObject(p.top,false)[0]; if(h){ L=p.g.worldToLocal(h.point.clone()); lineLen=h.distance; } }
+      if(L) applyToPizza(o,p,L); }
+    if(G.station==="cut"&&G.cutQueue[0]){ const p=G.cutQueue[0]; let L=localOnPizza(p,o.pos,.12,1.8);
+      if(!L){ const h=ray.intersectObject(cutPlane,false)[0]; if(h){ L=p.g.worldToLocal(h.point.clone()); lineLen=h.distance; } }
+      if(L){ if(o.pressed) o.cut={a:L.clone()};
+        if(o.cut){ o.cutLine.geometry.setFromPoints([p.g.localToWorld(V3(o.cut.a.x,.02,o.cut.a.z)),p.g.localToWorld(V3(L.x,.02,L.z))]); o.cutLine.visible=true; }
+        if(o.released&&o.cut){ addCut(p,o.cut.a,L); o.cut=null; o.cutLine.visible=false; buzz(o,.7,60); } }
+      if(o.released){ o.cut=null; o.cutLine.visible=false; } }
+    // 4) laser-pick far objects
+    if(o.pressed&&!nearTarget&&G.station!=="cut"){ const h=ray.intersectObjects(stationTargets(),false)[0]; if(h){ act(h.object.userData.action); lineLen=h.distance; buzz(o,.5,30); } }
+    if(o.released){ o.lastPaint=null; o.lastDrop=null; }
+    o.line.scale.z=lineLen; o.line.visible=true;
+  }
+}
+function nearestTarget(pos){
+  let best=null, bd=1e9;
+  for(const m of stationTargets()){ if(m===cutPlane) continue; if(!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+    _sph.copy(m.geometry.boundingSphere).applyMatrix4(m.matrixWorld); const d=pos.distanceTo(_sph.center)-_sph.radius; if(d<.05&&d<bd){ bd=d; best=m; } }
+  return best;
+}
+function localOnPizza(p,pos,hmax,rmul){ const L=p.g.worldToLocal(pos.clone()); return L.y>-.03&&L.y<hmax&&Math.hypot(L.x,L.z)<PR*rmul?L:null; }
+function nearPizza(o){ const p=G.station==="build"?G.buildPizza:G.station==="cut"?G.cutQueue[0]:null; return p?!!localOnPizza(p,o.pos,.12,1.6):false; }
+
+async function enterVR(){
+  initAudio();
+  const session=await navigator.xr.requestSession("immersive-vr",{optionalFeatures:["local-floor","bounded-floor","hand-tracking"]});
+  renderer.xr.setReferenceSpaceType("local-floor"); await renderer.xr.setSession(session);
+  startVRMode();
+  session.addEventListener("end",()=>{ vrOn=false; for(const p of ALL_PANELS) p.mesh.visible=false; rig.position.set(0,0,0); rig.rotation.set(0,0,0); keyL.castShadow=true; for(const o of XI){ o.tip.visible=o.dot.visible=false; } });
+}
+function startVRMode(){
+  vrOn=true; $("intro").hidden=true; keyL.castShadow=false;
+  if(!G.day) startDay();
+  G.paused=true; vrOverlay="howto"; placeRig();
+  for(const p of [mainP,ticketP]) p.mesh.visible=true;
+}
+function vrUpdatePanels(){ drawMain(); drawTickets(); drawOverlay(); drawToast(); }
+
+/* =========================================================
+   Start
+   ========================================================= */
+$("muteBtn").onclick=()=>{ initAudio(); setMusic(!musicOn); };
+setMusic(musicOn);
+$("startCam").onclick=async()=>{
+  initAudio(); $("err").hidden=true; $("startCam").disabled=true; $("startCam").textContent="Opening…";
+  try{ await startCamera(); $("intro").hidden=true; startDay(); }
+  catch(e){ console.error(e); $("err").textContent="The camera or hand tracking didn’t start. Allow camera access, check your internet connection and use Chrome or Edge. You can also practise with a mouse."; $("err").hidden=false; $("startCam").disabled=false; $("startCam").textContent="Try again"; }
+};
+$("startMouse").onclick=()=>{ initAudio(); useMouse(); $("intro").hidden=true; startDay(); };
+buildTrays(); tameReflections(); resize(); renderer.setAnimationLoop(frame);
+if(navigator.xr&&navigator.xr.isSessionSupported) navigator.xr.isSessionSupported("immersive-vr").then(ok=>{ if(ok){ $("vrBtn").hidden=false; $("vrBtn2").hidden=false; $("vrNote").hidden=true; } }).catch(()=>{});
+for(const id of ["vrBtn","vrBtn2"]) $(id).onclick=()=>enterVR().catch(e=>{ console.error(e); toast("VR didn’t start"); });
+window.__pz={vrOverlayOff(){ vrOverlay=null; },vrUpdatePanels,mainP,vrState:()=>({vrOn,vrOverlay}),vrPreview(){ vrPreview=true; startVRMode(); },XI,scene,bloom,renderer,snap(){ camPos.copy(VIEWS[G.station].pos); camLook.copy(VIEWS[G.station].look); },G,P,SAVE,startDay,setStation,takeOrder,grabDough,sendToOven,takeOut,serve,paintAt,placeTopping,addCut,T:()=>T};
+</script>
+</body>
+</html>
